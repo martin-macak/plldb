@@ -1,5 +1,7 @@
 .PHONY: init build test clean
 
+all: init build
+
 # Initialize development environment
 init:
 	uv sync --dev
