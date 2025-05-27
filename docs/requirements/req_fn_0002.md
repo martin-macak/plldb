@@ -5,6 +5,11 @@ When the `plldb bootstrap` command is run, it will also deploy the CloudFormatio
 ## Acceptance Criteria
 
 - when `plldb bootstrap setup` is run, it will deploy the CloudFormation stack for the infrastructure stack.
+- when the `plldb bootstrap destroy` is run, it will destroy the CloudFormation stack for the infrastructure stack.
+- the stack is deployed without any parameters.
+- the stack is deployed without any errors.
+- the stack is packaged to the bucket that was created in [REQ_FN_0001](./req_fn_0001.md) ticket.
+- the stack is named `plldb`.
 - the stack is vanilla CloudFormation stack, no Serverless transformations are used.
 - deployed resources are:
   - PLDDBSessions : AWS::DynamoDB::Table
@@ -12,6 +17,17 @@ When the `plldb bootstrap` command is run, it will also deploy the CloudFormatio
   - PLLDBDebuggerRole : AWS::IAM::Role
   - PLLDBManagerRole : AWS::IAM::Role
   - PLDDBAPI : AWS::ApiGatewayV2::Api
+- the stack is deployed under current AWS account and current users AWS IAM credentials.
+
+See the [stack definition](#stack-definition) section for more details.
+
+## Out of scope
+
+- the lambda functions for WebSocket API authorizer, connect, disconnect and default handlers are created but no implementation is provided in this ticket.
+- the API authorizer is implement to authorize all requests.
+- no database management is implemented in this ticket.
+
+## Stack definition
 
 ### PLDDBSessions
 
@@ -43,13 +59,13 @@ Primary key: RequestId
 This is a WebSocket API that's used to communicate with the debugger.
 
 - API uses custom lambda authorizer
-- Lambda authorizer expectects that client sends sessionId as query parameter. The sessionId is used to identify the session. If the sessionId is found in PLLDBSessions table, the authorizer authorizes the request. The connectionId is updated to the sessionId record.
 
 ## Implementation Notes
 
 - the stack definition is in the `plldb.bootstrap.cloudformation` package.
 - template is named `template.yaml` and contains all stack resources.
 - all lambda functions are in the `plldb.bootstrap.cloudformation.lambda_functions` package.
-- lambda functions are not inlined, they are included from `plldb.bootstrap.cloudformation.lambda_functions` package.
+- lambda functions MUST NOT be inlined, they are included from `plldb.bootstrap.cloudformation.lambda_functions` package.
+- create lambda function for connect, disconnect, authorize and default handlers. for example `ws_api_connect_handler.py` for connect handler.
 - the stack is deployed by boto3 cloudformation client.
 - the stack is deployed from the `plldb.core.bootstrap.cloudformation` package location.
