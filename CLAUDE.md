@@ -74,3 +74,5 @@ Tests use the `mock_aws_session` fixture from `tests/conftest.py` which:
 3. Provides a mocked boto3 session
 
 This ensures all AWS operations during testing are safely mocked and will never touch real AWS resources.
+
+- Use `monkeypatch` fixture instead of `unittest.mock.patch`.
