@@ -15,6 +15,9 @@ test:
 pyright:
 	uv run pyright
 
+format:
+	uv run ruff format
+
 # Clean up build artifacts and cache files
 clean:
 	rm -rf build/
