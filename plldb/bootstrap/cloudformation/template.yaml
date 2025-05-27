@@ -2,6 +2,44 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'PLLDB Infrastructure Stack'
 
 Resources:
+  PLLDBSessions:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PLLDBSessions
+      AttributeDefinitions:
+        - AttributeName: SessionId
+          AttributeType: S
+        - AttributeName: ConnectionId
+          AttributeType: S
+        - AttributeName: StackName
+          AttributeType: S
+        - AttributeName: TTL
+          AttributeType: N
+      KeySchema:
+        - AttributeName: SessionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GSI-StackName
+          KeySchema:
+            - AttributeName: StackName
+              KeyType: HASH
+            - AttributeName: TTL
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI-ConnectionId
+          KeySchema:
+            - AttributeName: ConnectionId
+              KeyType: HASH
+            - AttributeName: SessionId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+
   PLLDBServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -27,6 +65,17 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt PLLDBSessions.Arn
+                  - !Sub '${PLLDBSessions.Arn}/index/*'
 
   PLLDBWebSocketConnectFunction:
     Type: AWS::Lambda::Function
@@ -75,6 +124,21 @@ Resources:
         S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_default.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
+
+  PLLDBRestApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: plldb-restapi
+      Handler: restapi.lambda_handler
+      Runtime: python3.13
+      Code:
+        S3Bucket: !Sub '${S3Bucket}'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/restapi.zip'
+      Role: !GetAtt PLLDBServiceRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref PLLDBSessions
 
   PLLDBWebSocketAPI:
     Type: AWS::ApiGatewayV2::Api
@@ -192,6 +256,50 @@ Resources:
       DeploymentId: !Ref PLLDBWebSocketDeployment
       StageName: prod
 
+  PLLDBAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: PLLDBAPI
+      Description: PLLDB Management API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  PLLDBAPISessionsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PLLDBAPI
+      ParentId: !GetAtt PLLDBAPI.RootResourceId
+      PathPart: sessions
+
+  PLLDBAPISessionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PLLDBAPI
+      ResourceId: !Ref PLLDBAPISessionsResource
+      HttpMethod: POST
+      AuthorizationType: AWS_IAM
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBRestApiFunction.Arn}/invocations'
+
+  PLLDBRestApiFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PLLDBRestApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/*'
+
+  PLLDBAPIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PLLDBAPISessionsMethod
+    Properties:
+      RestApiId: !Ref PLLDBAPI
+      StageName: prod
+
 Parameters:
   S3Bucket:
     Type: String
@@ -204,3 +312,9 @@ Outputs:
   WebSocketURL:
     Description: WebSocket API URL
     Value: !Sub 'wss://${PLLDBWebSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/${PLLDBWebSocketStage}'
+  ManagementAPIId:
+    Description: Management API ID
+    Value: !Ref PLLDBAPI
+  ManagementAPIURL:
+    Description: Management API URL
+    Value: !Sub 'https://${PLLDBAPI}.execute-api.${AWS::Region}.amazonaws.com/prod'

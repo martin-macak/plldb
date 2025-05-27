@@ -47,3 +47,8 @@ target-version = "py310"
 filterwarnings = [
     'ignore:datetime\.datetime\.utcnow\(\) is deprecated:DeprecationWarning'
 ]
+
+[dependency-groups]
+dev = [
+    "types-boto3>=1.38.23",
+]

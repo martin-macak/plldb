@@ -59,6 +59,7 @@ class TestBootstrapManager:
 
         # Mock the _package_lambda_function method
         call_args = []
+
         def mock_package(func_name):
             call_args.append(func_name)
             return b"mock zip content"
@@ -67,15 +68,16 @@ class TestBootstrapManager:
 
         manager._upload_lambda_functions("test-bucket")
 
-        assert len(call_args) == 4
+        assert len(call_args) == 5
         assert "websocket_connect" in call_args
         assert "websocket_disconnect" in call_args
         assert "websocket_authorize" in call_args
         assert "websocket_default" in call_args
+        assert "restapi" in call_args
 
         # Verify files were uploaded
         response = manager.s3_client.list_objects_v2(Bucket="test-bucket")
-        assert response["KeyCount"] == 4
+        assert response["KeyCount"] == 5
 
     def test_upload_template(self, mock_aws_session):
         manager = BootstrapManager(mock_aws_session)
@@ -97,21 +99,21 @@ class TestBootstrapManager:
 
         # Test that the method builds the correct parameters
         create_stack_calls = []
-        
+
         def mock_describe_stacks(**kwargs):
             raise ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
-        
+
         def mock_create_stack(**kwargs):
             create_stack_calls.append(kwargs)
             return {}
-        
+
         class MockWaiter:
             def wait(self, **kwargs):
                 pass
-        
+
         def mock_get_waiter(waiter_name):
             return MockWaiter()
-        
+
         monkeypatch.setattr(manager.cloudformation_client, "describe_stacks", mock_describe_stacks)
         monkeypatch.setattr(manager.cloudformation_client, "create_stack", mock_create_stack)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)
@@ -128,21 +130,21 @@ class TestBootstrapManager:
 
         # Test update stack parameters
         update_stack_calls = []
-        
+
         def mock_describe_stacks(**kwargs):
             return {"Stacks": [{"StackName": "plldb"}]}
-        
+
         def mock_update_stack(**kwargs):
             update_stack_calls.append(kwargs)
             return {}
-        
+
         class MockWaiter:
             def wait(self, **kwargs):
                 pass
-        
+
         def mock_get_waiter(waiter_name):
             return MockWaiter()
-        
+
         monkeypatch.setattr(manager.cloudformation_client, "describe_stacks", mock_describe_stacks)
         monkeypatch.setattr(manager.cloudformation_client, "update_stack", mock_update_stack)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)
@@ -160,35 +162,35 @@ class TestBootstrapManager:
         # Test destroy stack calls
         delete_stack_calls = []
         delete_bucket_calls = []
-        
+
         def mock_describe_stacks(**kwargs):
             return {"Stacks": [{"StackName": "plldb"}]}
-        
+
         def mock_delete_stack(**kwargs):
             delete_stack_calls.append(kwargs)
             return {}
-        
+
         class MockWaiter:
             def wait(self, **kwargs):
                 pass
-        
+
         def mock_get_waiter(waiter_name):
             return MockWaiter()
-        
+
         def mock_head_bucket(**kwargs):
             return {}
-        
+
         class MockPaginator:
             def paginate(self, **kwargs):
                 return []
-        
+
         def mock_get_paginator(operation_name):
             return MockPaginator()
-        
+
         def mock_delete_bucket(**kwargs):
             delete_bucket_calls.append(kwargs)
             return {}
-        
+
         monkeypatch.setattr(manager.cloudformation_client, "describe_stacks", mock_describe_stacks)
         monkeypatch.setattr(manager.cloudformation_client, "delete_stack", mock_delete_stack)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)
@@ -208,35 +210,35 @@ class TestBootstrapManager:
         # Test destroy when no stack exists
         delete_stack_calls = []
         delete_bucket_calls = []
-        
+
         def mock_describe_stacks(**kwargs):
             raise ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
-        
+
         def mock_delete_stack(**kwargs):
             delete_stack_calls.append(kwargs)
             return {}
-        
+
         class MockWaiter:
             def wait(self, **kwargs):
                 pass
-        
+
         def mock_get_waiter(waiter_name):
             return MockWaiter()
-        
+
         def mock_head_bucket(**kwargs):
             return {}
-        
+
         class MockPaginator:
             def paginate(self, **kwargs):
                 return []
-        
+
         def mock_get_paginator(operation_name):
             return MockPaginator()
-        
+
         def mock_delete_bucket(**kwargs):
             delete_bucket_calls.append(kwargs)
             return {}
-        
+
         monkeypatch.setattr(manager.cloudformation_client, "describe_stacks", mock_describe_stacks)
         monkeypatch.setattr(manager.cloudformation_client, "delete_stack", mock_delete_stack)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)

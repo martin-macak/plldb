@@ -100,7 +100,7 @@ class BootstrapManager:
             click.echo(f"Stack {stack_name} already exists, updating...")
             operation = self.cloudformation_client.update_stack
         except ClientError as e:
-            if e.response["Error"]["Code"] == "ValidationError" and "does not exist" in str(e):
+            if e.response.get("Error", {}).get("Code") == "ValidationError" and "does not exist" in str(e):
                 click.echo(f"Creating new stack: {stack_name}")
                 operation = self.cloudformation_client.create_stack
             else:
@@ -120,7 +120,7 @@ class BootstrapManager:
             click.echo(f"Stack {stack_name} deployed successfully")
 
         except ClientError as e:
-            if e.response["Error"]["Code"] == "ValidationError" and "No updates are to be performed" in str(e):
+            if e.response.get("Error", {}).get("Code") == "ValidationError" and "No updates are to be performed" in str(e):
                 click.echo(f"Stack {stack_name} is already up to date")
             else:
                 raise
@@ -135,7 +135,7 @@ class BootstrapManager:
             self.s3_client.head_bucket(Bucket=bucket_name)
             click.echo(f"Bucket {bucket_name} already exists")
         except ClientError as e:
-            if e.response["Error"]["Code"] == "404":
+            if e.response.get("Error", {}).get("Code") == "404":
                 click.echo(f"Creating bucket {bucket_name}")
                 if region == "us-east-1":
                     self.s3_client.create_bucket(Bucket=bucket_name)
@@ -187,7 +187,7 @@ class BootstrapManager:
             waiter.wait(StackName=stack_name)
             click.echo(f"Stack {stack_name} deleted successfully")
         except ClientError as e:
-            if e.response["Error"]["Code"] == "ValidationError" and "does not exist" in str(e):
+            if e.response.get("Error", {}).get("Code") == "ValidationError" and "does not exist" in str(e):
                 click.echo(f"Stack {stack_name} does not exist")
             else:
                 raise
@@ -197,7 +197,7 @@ class BootstrapManager:
         try:
             self.s3_client.head_bucket(Bucket=bucket_name)
         except ClientError as e:
-            if e.response["Error"]["Code"] == "404":
+            if e.response.get("Error", {}).get("Code") == "404":
                 click.echo(f"Bucket {bucket_name} does not exist")
                 return
             else:

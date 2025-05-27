@@ -19,7 +19,7 @@ class TestBootstrapManager:
         monkeypatch.setattr(manager, "_upload_lambda_functions", lambda bucket_name: None)
         monkeypatch.setattr(manager, "_upload_template", lambda bucket_name: "test-key")
         monkeypatch.setattr(manager, "_deploy_stack", lambda bucket_name, template_key: None)
-        
+
         manager.setup()
 
         response = s3_client.head_bucket(Bucket="plldb-core-infrastructure-us-east-1-123456789012")
@@ -42,7 +42,7 @@ class TestBootstrapManager:
         monkeypatch.setattr(manager, "_upload_lambda_functions", lambda bucket_name: None)
         monkeypatch.setattr(manager, "_upload_template", lambda bucket_name: "test-key")
         monkeypatch.setattr(manager, "_deploy_stack", lambda bucket_name, template_key: None)
-        
+
         manager.setup()
 
         response = s3_client.head_bucket(Bucket="plldb-core-infrastructure-us-east-1-123456789012")
@@ -64,7 +64,7 @@ class TestBootstrapManager:
             monkeypatch.setattr(manager, "_upload_lambda_functions", lambda bucket_name: None)
             monkeypatch.setattr(manager, "_upload_template", lambda bucket_name: "test-key")
             monkeypatch.setattr(manager, "_deploy_stack", lambda bucket_name, template_key: None)
-            
+
             manager.setup()
 
             response = s3_client.head_bucket(Bucket="plldb-core-infrastructure-eu-west-1-123456789012")
@@ -84,14 +84,14 @@ class TestBootstrapManager:
         # Mock the CloudFormation operations
         def mock_describe_stacks(**kwargs):
             raise ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
-        
+
         class MockWaiter:
             def wait(self, **kwargs):
                 pass
-        
+
         def mock_get_waiter(waiter_name):
             return MockWaiter()
-        
+
         monkeypatch.setattr(manager.cloudformation_client, "describe_stacks", mock_describe_stacks)
         monkeypatch.setattr(manager.cloudformation_client, "delete_stack", lambda **kwargs: None)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)
@@ -108,14 +108,14 @@ class TestBootstrapManager:
         # Mock the CloudFormation operations
         def mock_describe_stacks(**kwargs):
             raise ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
-        
+
         class MockWaiter:
             def wait(self, **kwargs):
                 pass
-        
+
         def mock_get_waiter(waiter_name):
             return MockWaiter()
-        
+
         monkeypatch.setattr(manager.cloudformation_client, "describe_stacks", mock_describe_stacks)
         monkeypatch.setattr(manager.cloudformation_client, "delete_stack", lambda **kwargs: None)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)
@@ -138,14 +138,14 @@ class TestBootstrapManager:
         # Mock the CloudFormation operations
         def mock_describe_stacks(**kwargs):
             raise ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
-        
+
         class MockWaiter:
             def wait(self, **kwargs):
                 pass
-        
+
         def mock_get_waiter(waiter_name):
             return MockWaiter()
-        
+
         monkeypatch.setattr(manager.cloudformation_client, "describe_stacks", mock_describe_stacks)
         monkeypatch.setattr(manager.cloudformation_client, "delete_stack", lambda **kwargs: None)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)

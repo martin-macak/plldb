@@ -53,7 +53,7 @@ def test_bootstrap_without_subcommand_runs_setup(runner, mock_aws_session, monke
     monkeypatch.setattr(BootstrapManager, "_upload_lambda_functions", lambda self, bucket_name: None)
     monkeypatch.setattr(BootstrapManager, "_upload_template", lambda self, bucket_name: "test-key")
     monkeypatch.setattr(BootstrapManager, "_deploy_stack", lambda self, bucket_name, template_key: None)
-    
+
     result = runner.invoke(cli, ["bootstrap"])
 
     if result.exit_code != 0:
