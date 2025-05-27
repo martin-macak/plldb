@@ -2,6 +2,9 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project.scripts]
+plldb = "plldb.cli:cli"
+
 [project]
 name = "plldb"
 version = "0.1.0"
@@ -10,6 +13,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "boto3>=1.38.23",
+    "click>=8.2.1",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -17,7 +21,7 @@ packages = ["plldb"]
 
 [tool.uv]
 dev-dependencies = [
-    "moto>=5.1.5",
+    "moto<5.1.0",
     "pyright>=1.1.401",
     "pytest>=8.3.5",
     "ruff>=0.11.11",
@@ -35,3 +39,8 @@ ignore = []
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    'ignore:datetime\.datetime\.utcnow\(\) is deprecated:DeprecationWarning'
+]

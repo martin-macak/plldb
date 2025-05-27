@@ -83,6 +83,18 @@ wheels = [
 ]
 
 [[package]]
+name = "click"
+version = "8.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/32/10bb5764d90a8eee674e9dc6f4db6a0ab47c8c4d0d83c27f7c39ac415a4d/click-8.2.1-py3-none-any.whl", hash = "sha256:61a3265b914e850b85317d0b3109c7f8cd35a670f963866005d6ef1d5175a12b", size = 102215 },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -195,7 +207,7 @@ wheels = [
 
 [[package]]
 name = "moto"
-version = "5.1.5"
+version = "5.0.28"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -208,9 +220,9 @@ dependencies = [
     { name = "werkzeug" },
     { name = "xmltodict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/9f/5cacf53cbd26b4a77c817fd4fbec2ed38139ba2cfcd842c279aa19ee161f/moto-5.1.5.tar.gz", hash = "sha256:42b362ea9a16181e8e7b615ac212c294b882f020e9ae02f01230f167926df84e", size = 6893155 }
+sdist = { url = "https://files.pythonhosted.org/packages/40/80/ac29b291289e16d0cb047dcce8a555ab150bcd30328141efff207f26ab7c/moto-5.0.28.tar.gz", hash = "sha256:4d3437693411ec943c13c77de5b0b520c4b0a9ac850fead4ba2a54709e086e8b", size = 6537950 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/84/0f/72a420e972a9e782d08843ced85d29f04c8470c66fc84ecb1c8a7e7abcf8/moto-5.1.5-py3-none-any.whl", hash = "sha256:866ae85eb5efe11a78f991127531878fd7f49177eb4a6680f47060430eb8932d", size = 4992353 },
+    { url = "https://files.pythonhosted.org/packages/77/d1/5a472eb11de9ee395db53c29cbd7b16a6c4d3e0d802b13d94a73951c2eae/moto-5.0.28-py3-none-any.whl", hash = "sha256:2dfbea1afe3b593e13192059a1a7fc4b3cf7fdf92e432070c22346efa45aa0f0", size = 4696467 },
 ]
 
 [[package]]
@@ -237,6 +249,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },
+    { name = "click" },
 ]
 
 [package.dev-dependencies]
@@ -248,11 +261,14 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "boto3", specifier = ">=1.38.23" }]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.38.23" },
+    { name = "click", specifier = ">=8.2.1" },
+]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "moto", specifier = ">=5.1.5" },
+    { name = "moto", specifier = "<5.1.0" },
     { name = "pyright", specifier = ">=1.1.401" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "ruff", specifier = ">=0.11.11" },
