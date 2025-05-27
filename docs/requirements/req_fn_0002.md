@@ -79,13 +79,10 @@ Use the phased deployment approach:
 - Deploy the stack.
 
 Follow these rules:
-- use `Fn::Ref` instead of `!Ref` in the template.yaml.
-- use `Fn::Sub` instead of `!Sub` in the template.yaml.
+- use `Ref` instead of `!Ref` in the template.yaml.
+- use `Fn::Sub` instead of `!Sub` in the template.yaml. 
 - use `Fn::GetAtt` instead of `!GetAtt` in the template.yaml.
-- use `Fn::GetAZs` instead of `!GetAZs` in the template.yaml.
-- use `Fn::ImportValue` instead of `!ImportValue` in the template.yaml.
 - use `Fn::Join` instead of `!Join` in the template.yaml.
-- use `Fn::Select` instead of `!Select` in the template.yaml.
 - use `Fn::Split` instead of `!Split` in the template.yaml.
 - use `Fn::Sub` instead of `!Sub` in the template.yaml.
 - use `Fn::Transform` instead of `!Transform` in the template.yaml.
