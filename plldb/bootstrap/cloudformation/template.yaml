@@ -28,168 +28,168 @@ Resources:
                   - 'logs:PutLogEvents'
                 Resource: '*'
 
-  PLLDBConnectFunction:
+  PLLDBWebSocketConnectFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: plldb-connect
-      Handler: connect.lambda_handler
+      FunctionName: plldb-websocket-connect
+      Handler: websocket_connect.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
-        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/connect.zip'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_connect.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
 
-  PLLDBDisconnectFunction:
+  PLLDBWebSocketDisconnectFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: plldb-disconnect
-      Handler: disconnect.lambda_handler
+      FunctionName: plldb-websocket-disconnect
+      Handler: websocket_disconnect.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
-        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/disconnect.zip'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_disconnect.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
 
-  PLLDBAuthorizeFunction:
+  PLLDBWebSocketAuthorizeFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: plldb-authorize
-      Handler: authorize.lambda_handler
+      FunctionName: plldb-websocket-authorize
+      Handler: websocket_authorize.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
-        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/authorize.zip'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_authorize.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
 
-  PLLDBDefaultFunction:
+  PLLDBWebSocketDefaultFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: plldb-default
-      Handler: default.lambda_handler
+      FunctionName: plldb-websocket-default
+      Handler: websocket_default.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
-        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/default.zip'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_default.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
 
-  PLLDBAPI:
+  PLLDBWebSocketAPI:
     Type: AWS::ApiGatewayV2::Api
     Properties:
       Name: PLLDBAPI
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.action"
 
-  PLLDBConnectIntegration:
+  PLLDBWebSocketConnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBConnectFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBWebSocketConnectFunction.Arn}/invocations'
 
-  PLLDBDisconnectIntegration:
+  PLLDBWebSocketDisconnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDisconnectFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBWebSocketDisconnectFunction.Arn}/invocations'
 
-  PLLDBAuthorizeIntegration:
+  PLLDBWebSocketAuthorizeIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBAuthorizeFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBWebSocketAuthorizeFunction.Arn}/invocations'
 
-  PLLDBDefaultIntegration:
+  PLLDBWebSocketDefaultIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDefaultFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBWebSocketDefaultFunction.Arn}/invocations'
 
-  PLLDBConnectRoute:
+  PLLDBWebSocketConnectRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       RouteKey: $connect
       AuthorizationType: NONE
-      Target: !Sub 'integrations/${PLLDBConnectIntegration}'
+      Target: !Sub 'integrations/${PLLDBWebSocketConnectIntegration}'
 
-  PLLDBDisconnectRoute:
+  PLLDBWebSocketDisconnectRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       RouteKey: $disconnect
       AuthorizationType: NONE
-      Target: !Sub 'integrations/${PLLDBDisconnectIntegration}'
+      Target: !Sub 'integrations/${PLLDBWebSocketDisconnectIntegration}'
 
-  PLLDBAuthorizeRoute:
+  PLLDBWebSocketAuthorizeRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       RouteKey: authorize
       AuthorizationType: NONE
-      Target: !Sub 'integrations/${PLLDBAuthorizeIntegration}'
+      Target: !Sub 'integrations/${PLLDBWebSocketAuthorizeIntegration}'
 
-  PLLDBDefaultRoute:
+  PLLDBWebSocketDefaultRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
       RouteKey: $default
       AuthorizationType: NONE
-      Target: !Sub 'integrations/${PLLDBDefaultIntegration}'
+      Target: !Sub 'integrations/${PLLDBWebSocketDefaultIntegration}'
 
-  PLLDBConnectPermission:
+  PLLDBWebSocketConnectPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref PLLDBConnectFunction
+      FunctionName: !Ref PLLDBWebSocketConnectFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$connect'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/*/$connect'
 
-  PLLDBDisconnectPermission:
+  PLLDBWebSocketDisconnectPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref PLLDBDisconnectFunction
+      FunctionName: !Ref PLLDBWebSocketDisconnectFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$disconnect'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/*/$disconnect'
 
-  PLLDBAuthorizePermission:
+  PLLDBWebSocketAuthorizePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref PLLDBAuthorizeFunction
+      FunctionName: !Ref PLLDBWebSocketAuthorizeFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/authorize'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/*/authorize'
 
-  PLLDBDefaultPermission:
+  PLLDBWebSocketDefaultPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref PLLDBDefaultFunction
+      FunctionName: !Ref PLLDBWebSocketDefaultFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$default'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/*/$default'
 
-  PLLDBDeployment:
+  PLLDBWebSocketDeployment:
     Type: AWS::ApiGatewayV2::Deployment
     DependsOn:
-      - PLLDBConnectRoute
-      - PLLDBDisconnectRoute
-      - PLLDBAuthorizeRoute
-      - PLLDBDefaultRoute
+      - PLLDBWebSocketConnectRoute
+      - PLLDBWebSocketDisconnectRoute
+      - PLLDBWebSocketAuthorizeRoute
+      - PLLDBWebSocketDefaultRoute
     Properties:
-      ApiId: !Ref PLLDBAPI
+      ApiId: !Ref PLLDBWebSocketAPI
 
-  PLLDBStage:
+  PLLDBWebSocketStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
-      ApiId: !Ref PLLDBAPI
-      DeploymentId: !Ref PLLDBDeployment
+      ApiId: !Ref PLLDBWebSocketAPI
+      DeploymentId: !Ref PLLDBWebSocketDeployment
       StageName: prod
 
 Parameters:
@@ -203,4 +203,4 @@ Parameters:
 Outputs:
   WebSocketURL:
     Description: WebSocket API URL
-    Value: !Sub 'wss://${PLLDBAPI}.execute-api.${AWS::Region}.amazonaws.com/${PLLDBStage}'
+    Value: !Sub 'wss://${PLLDBWebSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/${PLLDBWebSocketStage}'

@@ -32,15 +32,15 @@ class TestBootstrapManager:
         manager = BootstrapManager(mock_aws_session)
 
         # Test with real lambda function that exists
-        zip_content = manager._package_lambda_function("connect")
+        zip_content = manager._package_lambda_function("websocket_connect")
 
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".zip", delete=False) as f:
             f.write(zip_content)
             f.flush()
 
             with zipfile.ZipFile(f.name, "r") as zipf:
-                assert "connect.py" in zipf.namelist()
-                content = zipf.read("connect.py").decode()
+                assert "websocket_connect.py" in zipf.namelist()
+                content = zipf.read("websocket_connect.py").decode()
                 assert "def lambda_handler" in content
 
         os.unlink(f.name)
@@ -68,10 +68,10 @@ class TestBootstrapManager:
         manager._upload_lambda_functions("test-bucket")
 
         assert len(call_args) == 4
-        assert "connect" in call_args
-        assert "disconnect" in call_args
-        assert "authorize" in call_args
-        assert "default" in call_args
+        assert "websocket_connect" in call_args
+        assert "websocket_disconnect" in call_args
+        assert "websocket_authorize" in call_args
+        assert "websocket_default" in call_args
 
         # Verify files were uploaded
         response = manager.s3_client.list_objects_v2(Bucket="test-bucket")
