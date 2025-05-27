@@ -1,5 +1,11 @@
 import boto3
+import logging
+import os
+import json
 from typing import Dict, Any, Optional
+
+logging.getLogger().setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+logger = logging.getLogger(__name__)
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa: ARG001
@@ -10,6 +16,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
     2. The sessionId exists in the PLLDBSessions table
     3. The session status is PENDING
     """
+    logger.debug(f"Event: {json.dumps(event)}")
 
     try:
         # Extract sessionId from query parameters
@@ -17,7 +24,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         session_id = query_params.get("sessionId") if query_params else None
 
         if not session_id:
-            return generate_policy("user", "Deny", event["methodArn"])
+            logger.warning(f"Unauthorized access: missing sessionId. The sessionId was supposed to be set by the authorizer.")
+            result = generate_policy("user", "Deny", event["methodArn"])
+            logger.debug(f"Return value: {json.dumps(result)}")
+            return result
 
         assert session_id, "sessionId is required"
 
@@ -29,27 +39,37 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
 
         if "Item" not in response:
             # Session doesn't exist
-            return generate_policy("user", "Deny", event["methodArn"])
+            logger.info(f"Unauthorized access: session not found {session_id=}")
+            result = generate_policy("user", "Deny", event["methodArn"])
+            logger.debug(f"Return value: {json.dumps(result)}")
+            return result
 
         session = response["Item"]
 
         # Check if session is PENDING
         if session.get("Status") != "PENDING":
-            return generate_policy("user", "Deny", event["methodArn"])
+            logger.info(f"Unauthorized access: session not PENDING {session_id=} status={session.get('Status')}")
+            result = generate_policy("user", "Deny", event["methodArn"])
+            logger.debug(f"Return value: {json.dumps(result)}")
+            return result
 
         # Session is valid - allow connection
         # Pass the sessionId as context so the connect handler can use it
+        logger.info(f"Session authorized: {session_id=}")
         policy = generate_policy(
             "user",
             "Allow",
             event["methodArn"],
             context={"sessionId": session_id},
         )
+        logger.debug(f"Return value: {json.dumps(policy)}")
         return policy
 
     except Exception as e:
-        print(f"Authorization error: {str(e)}")
-        return generate_policy("user", "Deny", event["methodArn"])
+        logger.error(f"Authorization error: {e=}")
+        result = generate_policy("user", "Deny", event["methodArn"])
+        logger.debug(f"Return value: {json.dumps(result)}")
+        return result
 
 
 def generate_policy(

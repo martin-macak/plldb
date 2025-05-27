@@ -88,6 +88,9 @@ Resources:
         S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_connect.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
 
   PLLDBWebSocketDisconnectFunction:
     Type: AWS::Lambda::Function
@@ -100,6 +103,9 @@ Resources:
         S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_disconnect.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
 
   PLLDBWebSocketAuthorizeFunction:
     Type: AWS::Lambda::Function
@@ -112,6 +118,9 @@ Resources:
         S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_authorize.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
 
   PLLDBWebSocketDefaultFunction:
     Type: AWS::Lambda::Function
@@ -124,6 +133,9 @@ Resources:
         S3Key: !Sub '${S3KeyPrefix}/lambda_functions/websocket_default.zip'
       Role: !GetAtt PLLDBServiceRole.Arn
       Timeout: 30
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
 
   PLLDBRestApiFunction:
     Type: AWS::Lambda::Function
@@ -139,6 +151,7 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref PLLDBSessions
+          LOG_LEVEL: INFO
 
   PLLDBWebSocketAPI:
     Type: AWS::ApiGatewayV2::Api
