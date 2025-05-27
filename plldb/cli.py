@@ -1,11 +1,16 @@
+import asyncio
 import logging
 
 import boto3
 import click
 
 from plldb.bootstrap.setup import BootstrapManager
+from plldb.core.rest_client import RestApiClient
+from plldb.core.stack_discovery import StackDiscovery
+from plldb.core.websocket_client import WebSocketClient
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -43,6 +48,43 @@ def destroy(ctx):
     session = ctx.obj["session"]
     manager = BootstrapManager(session)
     manager.destroy()
+
+
+@cli.command()
+@click.option("--stack-name", required=True, help="Name of the CloudFormation stack to attach to")
+@click.pass_context
+def attach(ctx, stack_name: str):
+    """Attach debugger to a CloudFormation stack"""
+    session = ctx.obj["session"]
+
+    try:
+        # Discover stack endpoints
+        discovery = StackDiscovery(session)
+        endpoints = discovery.get_api_endpoints(stack_name)
+
+        click.echo(f"Discovered endpoints for stack '{stack_name}'")
+
+        # Create debug session via REST API
+        rest_client = RestApiClient(session)
+        session_id = rest_client.create_session(endpoints["rest_api_url"], stack_name)
+
+        click.echo(f"Created debug session: {session_id}")
+        click.echo("Connecting to WebSocket API...")
+
+        # Connect to WebSocket and run message loop
+        ws_client = WebSocketClient(endpoints["websocket_url"], session_id)
+
+        # Run the async event loop
+        asyncio.run(ws_client.run_loop())
+
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        ctx.exit(1)
+    except KeyboardInterrupt:
+        click.echo("\nDebugger session terminated")
+    except Exception as e:
+        click.echo(f"Unexpected error: {e}", err=True)
+        ctx.exit(1)
 
 
 if __name__ == "__main__":

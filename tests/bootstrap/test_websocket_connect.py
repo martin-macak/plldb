@@ -16,29 +16,19 @@ class TestWebSocketConnect:
         mock_dynamodb = Mock()
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
-        
-        event = {
-            "requestContext": {
-                "connectionId": "test-connection-id",
-                "authorizer": {
-                    "sessionId": "test-session-id"
-                }
-            }
-        }
-        
+
+        event = {"requestContext": {"connectionId": "test-connection-id", "authorizer": {"sessionId": "test-session-id"}}}
+
         result = lambda_handler(event, None)
-        
+
         # Verify DynamoDB update was called correctly
         mock_table.update_item.assert_called_once_with(
             Key={"SessionId": "test-session-id"},
             UpdateExpression="SET #status = :status, ConnectionId = :conn_id",
             ExpressionAttributeNames={"#status": "Status"},
-            ExpressionAttributeValues={
-                ":status": "ACTIVE",
-                ":conn_id": "test-connection-id"
-            }
+            ExpressionAttributeValues={":status": "ACTIVE", ":conn_id": "test-connection-id"},
         )
-        
+
         # Verify response
         assert result["statusCode"] == 200
         body = json.loads(result["body"])
@@ -50,12 +40,12 @@ class TestWebSocketConnect:
         event = {
             "requestContext": {
                 "connectionId": "test-connection-id",
-                "authorizer": {}  # No sessionId
+                "authorizer": {},  # No sessionId
             }
         }
-        
+
         result = lambda_handler(event, None)
-        
+
         assert result["statusCode"] == 403
         body = json.loads(result["body"])
         assert body["error"] == "No session ID found"
@@ -68,9 +58,9 @@ class TestWebSocketConnect:
                 # No authorizer key
             }
         }
-        
+
         result = lambda_handler(event, None)
-        
+
         assert result["statusCode"] == 403
         body = json.loads(result["body"])
         assert body["error"] == "No session ID found"
@@ -83,18 +73,11 @@ class TestWebSocketConnect:
         mock_dynamodb = Mock()
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
-        
-        event = {
-            "requestContext": {
-                "connectionId": "test-connection-id",
-                "authorizer": {
-                    "sessionId": "test-session-id"
-                }
-            }
-        }
-        
+
+        event = {"requestContext": {"connectionId": "test-connection-id", "authorizer": {"sessionId": "test-session-id"}}}
+
         result = lambda_handler(event, None)
-        
+
         assert result["statusCode"] == 500
         body = json.loads(result["body"])
         assert "DynamoDB error" in body["error"]
@@ -106,19 +89,12 @@ class TestWebSocketConnect:
         mock_dynamodb = Mock()
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
-        
+
         connection_id = "unique-connection-id-12345"
-        event = {
-            "requestContext": {
-                "connectionId": connection_id,
-                "authorizer": {
-                    "sessionId": "test-session-id"
-                }
-            }
-        }
-        
+        event = {"requestContext": {"connectionId": connection_id, "authorizer": {"sessionId": "test-session-id"}}}
+
         lambda_handler(event, None)
-        
+
         # Verify the correct connection ID was used in the update
         update_call = mock_table.update_item.call_args
         assert update_call[1]["ExpressionAttributeValues"][":conn_id"] == connection_id

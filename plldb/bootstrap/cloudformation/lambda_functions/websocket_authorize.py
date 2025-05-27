@@ -2,9 +2,7 @@ import boto3
 from typing import Dict, Any, Optional
 
 
-def lambda_handler(
-    event: Dict[str, Any], context: Any
-) -> Dict[str, Any]:  # noqa: ARG001
+def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa: ARG001
     """Authorize WebSocket connections based on sessionId.
 
     This function validates that:
@@ -65,9 +63,7 @@ def generate_policy(
         "principalId": principal_id,
         "policyDocument": {
             "Version": "2012-10-17",
-            "Statement": [
-                {"Action": "execute-api:Invoke", "Effect": effect, "Resource": resource}
-            ],
+            "Statement": [{"Action": "execute-api:Invoke", "Effect": effect, "Resource": resource}],
         },
         **({"context": context} if context else {}),
     }
