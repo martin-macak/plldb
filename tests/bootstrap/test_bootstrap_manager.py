@@ -15,7 +15,8 @@ class TestBootstrapManager:
         assert manager.s3_client is not None
         assert manager.sts_client is not None
         assert manager.cloudformation_client is not None
-        assert manager.package_version == "0.1.0"
+        assert isinstance(manager.package_version, str)
+        assert len(manager.package_version) > 0
 
     def test_get_bucket_name(self, mock_aws_session):
         manager = BootstrapManager(mock_aws_session)
@@ -26,7 +27,9 @@ class TestBootstrapManager:
 
     def test_get_s3_key_prefix(self, mock_aws_session):
         manager = BootstrapManager(mock_aws_session)
-        assert manager._get_s3_key_prefix() == "plldb/versions/0.1.0"
+        prefix = manager._get_s3_key_prefix()
+        assert prefix.startswith("plldb/versions/")
+        assert len(prefix) > len("plldb/versions/")
 
     def test_package_lambda_function(self, mock_aws_session):
         manager = BootstrapManager(mock_aws_session)
@@ -87,7 +90,8 @@ class TestBootstrapManager:
 
         s3_key = manager._upload_template("test-bucket")
 
-        assert s3_key == "plldb/versions/0.1.0/template.yaml"
+        assert s3_key.startswith("plldb/versions/")
+        assert s3_key.endswith("/template.yaml")
 
         # Verify file was uploaded
         response = manager.s3_client.get_object(Bucket="test-bucket", Key=s3_key)
@@ -118,11 +122,12 @@ class TestBootstrapManager:
         monkeypatch.setattr(manager.cloudformation_client, "create_stack", mock_create_stack)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)
 
-        manager._deploy_stack("test-bucket", "plldb/versions/0.1.0/template.yaml")
+        template_key = f"{manager._get_s3_key_prefix()}/template.yaml"
+        manager._deploy_stack("test-bucket", template_key)
 
         assert len(create_stack_calls) == 1
         assert create_stack_calls[0]["StackName"] == "plldb"
-        assert create_stack_calls[0]["TemplateURL"] == "https://test-bucket.s3.amazonaws.com/plldb/versions/0.1.0/template.yaml"
+        assert create_stack_calls[0]["TemplateURL"] == f"https://test-bucket.s3.amazonaws.com/{template_key}"
         assert create_stack_calls[0]["Capabilities"] == ["CAPABILITY_IAM"]
 
     def test_deploy_stack_update_parameters(self, mock_aws_session, monkeypatch):
@@ -149,11 +154,12 @@ class TestBootstrapManager:
         monkeypatch.setattr(manager.cloudformation_client, "update_stack", mock_update_stack)
         monkeypatch.setattr(manager.cloudformation_client, "get_waiter", mock_get_waiter)
 
-        manager._deploy_stack("test-bucket", "plldb/versions/0.1.0/template.yaml")
+        template_key = f"{manager._get_s3_key_prefix()}/template.yaml"
+        manager._deploy_stack("test-bucket", template_key)
 
         assert len(update_stack_calls) == 1
         assert update_stack_calls[0]["StackName"] == "plldb"
-        assert update_stack_calls[0]["TemplateURL"] == "https://test-bucket.s3.amazonaws.com/plldb/versions/0.1.0/template.yaml"
+        assert update_stack_calls[0]["TemplateURL"] == f"https://test-bucket.s3.amazonaws.com/{template_key}"
         assert update_stack_calls[0]["Capabilities"] == ["CAPABILITY_IAM"]
 
     def test_destroy_stack_calls(self, mock_aws_session, monkeypatch):

@@ -40,6 +40,39 @@ Resources:
         AttributeName: TTL
         Enabled: true
 
+  PLLDBDebugger:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PLLDBDebugger
+      AttributeDefinitions:
+        - AttributeName: RequestId
+          AttributeType: S
+        - AttributeName: SessionId
+          AttributeType: S
+        - AttributeName: ConnectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: RequestId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GSI-SessionId
+          KeySchema:
+            - AttributeName: SessionId
+              KeyType: HASH
+            - AttributeName: RequestId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI-ConnectionId
+          KeySchema:
+            - AttributeName: ConnectionId
+              KeyType: HASH
+            - AttributeName: RequestId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+
   PLLDBServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -76,6 +109,48 @@ Resources:
                 Resource:
                   - !GetAtt PLLDBSessions.Arn
                   - !Sub '${PLLDBSessions.Arn}/index/*'
+
+  PLLDBDebuggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: PLLDBDebuggerRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': 'plldb-debugger'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PLLDBDebuggerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt PLLDBDebugger.Arn
+                  - !Sub '${PLLDBDebugger.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'execute-api:ManageConnections'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/*'
 
   PLLDBWebSocketConnectFunction:
     Type: AWS::Lambda::Function
