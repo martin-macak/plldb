@@ -32,7 +32,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: plldb-connect
-      Handler: connect.handler
+      Handler: connect.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
@@ -44,7 +44,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: plldb-disconnect
-      Handler: disconnect.handler
+      Handler: disconnect.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
@@ -56,7 +56,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: plldb-authorize
-      Handler: authorize.handler
+      Handler: authorize.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
@@ -68,7 +68,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: plldb-default
-      Handler: default.handler
+      Handler: default.lambda_handler
       Runtime: python3.13
       Code:
         S3Bucket: !Sub '${S3Bucket}'
@@ -88,28 +88,28 @@ Resources:
     Properties:
       ApiId: !Ref PLLDBAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBConnectFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBConnectFunction.Arn}/invocations'
 
   PLLDBDisconnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref PLLDBAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDisconnectFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDisconnectFunction.Arn}/invocations'
 
   PLLDBAuthorizeIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref PLLDBAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBAuthorizeFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBAuthorizeFunction.Arn}/invocations'
 
   PLLDBDefaultIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref PLLDBAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDefaultFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDefaultFunction.Arn}/invocations'
 
   PLLDBConnectRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -149,7 +149,7 @@ Resources:
       FunctionName: !Ref PLLDBConnectFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$connect'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$connect'
 
   PLLDBDisconnectPermission:
     Type: AWS::Lambda::Permission
@@ -157,7 +157,7 @@ Resources:
       FunctionName: !Ref PLLDBDisconnectFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$disconnect'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$disconnect'
 
   PLLDBAuthorizePermission:
     Type: AWS::Lambda::Permission
@@ -165,7 +165,7 @@ Resources:
       FunctionName: !Ref PLLDBAuthorizeFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/authorize'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/authorize'
 
   PLLDBDefaultPermission:
     Type: AWS::Lambda::Permission
@@ -173,7 +173,7 @@ Resources:
       FunctionName: !Ref PLLDBDefaultFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$default'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$default'
 
   PLLDBDeployment:
     Type: AWS::ApiGatewayV2::Deployment

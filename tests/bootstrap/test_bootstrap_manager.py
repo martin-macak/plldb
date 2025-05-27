@@ -42,7 +42,7 @@ class TestBootstrapManager:
             with zipfile.ZipFile(f.name, "r") as zipf:
                 assert "connect.py" in zipf.namelist()
                 content = zipf.read("connect.py").decode()
-                assert "def handler" in content
+                assert "def lambda_handler" in content
 
         os.unlink(f.name)
 
