@@ -1,7 +1,7 @@
 import pytest
 from botocore.exceptions import ClientError
 
-from plldb.core.bootstrap.setup import BootstrapManager
+from plldb.bootstrap.setup import BootstrapManager
 
 
 class TestBootstrapManager:

@@ -3,7 +3,7 @@ import logging
 import click
 import boto3
 
-from plldb.core.bootstrap.setup import BootstrapManager
+from plldb.bootstrap.setup import BootstrapManager
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
