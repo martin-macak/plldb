@@ -147,6 +147,16 @@ Resources:
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.action"
 
+  PLLDBWebSocketAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      Name: PLLDBSessionAuthorizer
+      ApiId: !Ref PLLDBWebSocketAPI
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBWebSocketAuthorizeFunction.Arn}/invocations'
+      IdentitySource:
+        - 'route.request.querystring.sessionId'
+
   PLLDBWebSocketConnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
@@ -180,7 +190,8 @@ Resources:
     Properties:
       ApiId: !Ref PLLDBWebSocketAPI
       RouteKey: $connect
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref PLLDBWebSocketAuthorizer
       Target: !Sub 'integrations/${PLLDBWebSocketConnectIntegration}'
 
   PLLDBWebSocketDisconnectRoute:
@@ -190,14 +201,6 @@ Resources:
       RouteKey: $disconnect
       AuthorizationType: NONE
       Target: !Sub 'integrations/${PLLDBWebSocketDisconnectIntegration}'
-
-  PLLDBWebSocketAuthorizeRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref PLLDBWebSocketAPI
-      RouteKey: authorize
-      AuthorizationType: NONE
-      Target: !Sub 'integrations/${PLLDBWebSocketAuthorizeIntegration}'
 
   PLLDBWebSocketDefaultRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -229,7 +232,7 @@ Resources:
       FunctionName: !Ref PLLDBWebSocketAuthorizeFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/*/authorize'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/authorizers/${PLLDBWebSocketAuthorizer}'
 
   PLLDBWebSocketDefaultPermission:
     Type: AWS::Lambda::Permission
@@ -244,7 +247,6 @@ Resources:
     DependsOn:
       - PLLDBWebSocketConnectRoute
       - PLLDBWebSocketDisconnectRoute
-      - PLLDBWebSocketAuthorizeRoute
       - PLLDBWebSocketDefaultRoute
     Properties:
       ApiId: !Ref PLLDBWebSocketAPI
