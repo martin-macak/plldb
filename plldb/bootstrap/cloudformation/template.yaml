@@ -390,6 +390,21 @@ Resources:
       RestApiId: !Ref PLLDBAPI
       StageName: prod
 
+  PLLDBDebuggerLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: PLLDBDebuggerRuntime
+      Description: PLLDB Lambda runtime wrapper for debugging
+      Content:
+        S3Bucket: !Sub '${S3Bucket}'
+        S3Key: !Sub '${S3KeyPrefix}/layer/debugger-layer.zip'
+      CompatibleRuntimes:
+        - python3.13
+        - python3.12
+        - python3.11
+        - python3.10
+        - python3.9
+
 Parameters:
   S3Bucket:
     Type: String
@@ -408,3 +423,6 @@ Outputs:
   ManagementAPIURL:
     Description: Management API URL
     Value: !Sub 'https://${PLLDBAPI}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  DebuggerLayerArn:
+    Description: ARN of the PLLDB Debugger Layer
+    Value: !Ref PLLDBDebuggerLayer

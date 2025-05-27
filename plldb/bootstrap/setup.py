@@ -73,6 +73,37 @@ class BootstrapManager:
 
             self.s3_client.put_object(Bucket=bucket_name, Key=s3_key, Body=function_zip)
 
+    def _package_and_upload_layer(self, bucket_name: str) -> None:
+        """Package and upload the Lambda layer for debugging runtime."""
+        layer_dir = Path(__file__).parent / "cloudformation" / "layer"
+        s3_key_prefix = self._get_s3_key_prefix()
+        
+        click.echo("Packaging Lambda layer...")
+        
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".zip", delete=False) as temp_file:
+            temp_path = temp_file.name
+        
+        try:
+            with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                # Add bootstrap script to bin/ directory
+                bootstrap_path = layer_dir / "bootstrap"
+                zipf.write(bootstrap_path, "bin/bootstrap")
+                
+                # Add lambda_runtime.py to bin/ directory
+                runtime_path = layer_dir / "lambda_runtime.py"
+                zipf.write(runtime_path, "bin/lambda_runtime.py")
+            
+            with open(temp_path, "rb") as f:
+                layer_content = f.read()
+            
+            s3_key = f"{s3_key_prefix}/layer/debugger-layer.zip"
+            click.echo(f"Uploading layer to s3://{bucket_name}/{s3_key}")
+            
+            self.s3_client.put_object(Bucket=bucket_name, Key=s3_key, Body=layer_content)
+            
+        finally:
+            os.unlink(temp_path)
+
     def _upload_template(self, bucket_name: str) -> str:
         template_path = Path(__file__).parent / "cloudformation" / "template.yaml"
         s3_key_prefix = self._get_s3_key_prefix()
@@ -162,6 +193,9 @@ class BootstrapManager:
 
         click.echo("\nPackaging and uploading Lambda functions...")
         self._upload_lambda_functions(bucket_name)
+
+        click.echo("\nPackaging and uploading Lambda layer...")
+        self._package_and_upload_layer(bucket_name)
 
         click.echo("\nUploading CloudFormation template...")
         template_s3_key = self._upload_template(bucket_name)

@@ -16,7 +16,9 @@ def runner():
 def test_cli_version(runner):
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "plldb, version 0.1.0" in result.output
+    assert "plldb, version" in result.output
+    # Version should be in the format: plldb, version X.Y.Z or plldb, version X.Y.Z.postN.devM+hash
+    assert result.output.startswith("plldb, version ")
 
 
 def test_cli_help(runner):

@@ -1,0 +1,6 @@
+#!/bin/bash
+# AWS Lambda runtime wrapper script
+# This script is executed when AWS_LAMBDA_EXEC_WRAPPER is set
+
+# Execute the Python runtime wrapper
+exec python3 /opt/bin/lambda_runtime.py "$@"
