@@ -52,10 +52,19 @@ class BootstrapManager:
             os.unlink(temp_path)
 
     def _upload_lambda_functions(self, bucket_name: str) -> None:
-        lambda_functions = ["connect", "disconnect", "authorize", "default"]
+        lambda_dir = Path(__file__).parent / "cloudformation" / "lambda_functions"
         s3_key_prefix = self._get_s3_key_prefix()
 
-        for function_name in lambda_functions:
+        # Discover all Python modules in the lambda_functions directory
+        lambda_functions = []
+        for file_path in lambda_dir.glob("*.py"):
+            if file_path.name != "__init__.py":
+                lambda_functions.append(file_path.stem)
+
+        if not lambda_functions:
+            raise ValueError("No Lambda functions found in lambda_functions directory")
+
+        for function_name in sorted(lambda_functions):
             click.echo(f"Packaging lambda function: {function_name}")
             function_zip = self._package_lambda_function(function_name)
 
