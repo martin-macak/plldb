@@ -79,6 +79,16 @@ Use the phased deployment approach:
 - Deploy the stack.
 
 Follow these rules:
+- use `Fn::Ref` instead of `!Ref` in the template.yaml.
+- use `Fn::Sub` instead of `!Sub` in the template.yaml.
+- use `Fn::GetAtt` instead of `!GetAtt` in the template.yaml.
+- use `Fn::GetAZs` instead of `!GetAZs` in the template.yaml.
+- use `Fn::ImportValue` instead of `!ImportValue` in the template.yaml.
+- use `Fn::Join` instead of `!Join` in the template.yaml.
+- use `Fn::Select` instead of `!Select` in the template.yaml.
+- use `Fn::Split` instead of `!Split` in the template.yaml.
+- use `Fn::Sub` instead of `!Sub` in the template.yaml.
+- use `Fn::Transform` instead of `!Transform` in the template.yaml.
 - the stack definition is in the `plldb.bootstrap.cloudformation` package.
 - create lambda function for connect, disconnect, authorize and default handlers. for example `ws_api_connect_handler.py` for connect handler.
 - template is named `template.yaml` and contains all stack resources.
