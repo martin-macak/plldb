@@ -9,6 +9,7 @@ When the `plldb bootstrap` command is run, it will also deploy the CloudFormatio
 - the stack is deployed without any parameters.
 - the stack is deployed without any errors.
 - the stack is packaged to the bucket that was created in [REQ_FN_0001](./req_fn_0001.md) ticket.
+- the lambda function code is packaged to the bucket that was created in [REQ_FN_0001](./req_fn_0001.md) ticket.
 - the stack is named `plldb`.
 - the stack is vanilla CloudFormation stack, no Serverless transformations are used.
 - deployed resources are:
@@ -71,10 +72,19 @@ Expected lambda function structure:
 
 ## Implementation Notes
 
+Use the phased deployment approach:
+- Package lambda functions into zip files.
+- Upload packaged lambda functions to s3 bucket.
+- Modify the template.yaml to reference the packaged lambda functions.
+- Deploy the stack.
+
+Follow these rules:
 - the stack definition is in the `plldb.bootstrap.cloudformation` package.
+- create lambda function for connect, disconnect, authorize and default handlers. for example `ws_api_connect_handler.py` for connect handler.
 - template is named `template.yaml` and contains all stack resources.
 - all lambda functions are in the `plldb.bootstrap.cloudformation.lambda_functions` package.
-- lambda functions MUST NOT be inlined, they are included from `plldb.bootstrap.cloudformation.lambda_functions` package.
-- create lambda function for connect, disconnect, authorize and default handlers. for example `ws_api_connect_handler.py` for connect handler.
+- lambda functions MUST NOT be inlined, they are included from `plldb.bootstrap.cloudformation.lambda_functions` package and packaged into s3 bucket.
 - the stack is deployed by boto3 cloudformation client.
 - the stack is deployed from the `plldb.core.bootstrap.cloudformation` package location.
+- the packaging uses prefix that matches the version on the `plldb` package. for example `plldb/versions/0.1.0/lambda_functions/<function_name>.zip`
+- the packaging mechanism properly handles placeholders in the template.yaml.
