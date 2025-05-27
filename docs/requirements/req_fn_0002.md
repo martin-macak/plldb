@@ -60,6 +60,15 @@ This is a WebSocket API that's used to communicate with the debugger.
 
 - API uses custom lambda authorizer
 
+Expected lambda function structure:
+```
+/plldb/bootstrap/cloudformation/lambda_functions/
+├── ws_api_connect_handler.py
+├── ws_api_disconnect_handler.py
+├── ws_api_authorize_handler.py
+└── ws_api_default_handler.py
+```
+
 ## Implementation Notes
 
 - the stack definition is in the `plldb.bootstrap.cloudformation` package.
