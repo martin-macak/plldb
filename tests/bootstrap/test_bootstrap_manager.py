@@ -128,7 +128,7 @@ class TestBootstrapManager:
         assert len(create_stack_calls) == 1
         assert create_stack_calls[0]["StackName"] == "plldb"
         assert create_stack_calls[0]["TemplateURL"] == f"https://test-bucket.s3.amazonaws.com/{template_key}"
-        assert create_stack_calls[0]["Capabilities"] == ["CAPABILITY_IAM"]
+        assert create_stack_calls[0]["Capabilities"] == ["CAPABILITY_IAM", "CAPABILITY_AUTO_EXPAND", "CAPABILITY_NAMED_IAM"]
 
     def test_deploy_stack_update_parameters(self, mock_aws_session, monkeypatch):
         manager = BootstrapManager(mock_aws_session)
@@ -160,7 +160,7 @@ class TestBootstrapManager:
         assert len(update_stack_calls) == 1
         assert update_stack_calls[0]["StackName"] == "plldb"
         assert update_stack_calls[0]["TemplateURL"] == f"https://test-bucket.s3.amazonaws.com/{template_key}"
-        assert update_stack_calls[0]["Capabilities"] == ["CAPABILITY_IAM"]
+        assert update_stack_calls[0]["Capabilities"] == ["CAPABILITY_IAM", "CAPABILITY_AUTO_EXPAND", "CAPABILITY_NAMED_IAM"]
 
     def test_destroy_stack_calls(self, mock_aws_session, monkeypatch):
         manager = BootstrapManager(mock_aws_session)

@@ -142,7 +142,7 @@ class BootstrapManager:
                 StackName=stack_name,
                 TemplateURL=template_url,
                 Parameters=[{"ParameterKey": "S3Bucket", "ParameterValue": bucket_name}, {"ParameterKey": "S3KeyPrefix", "ParameterValue": s3_key_prefix}],
-                Capabilities=["CAPABILITY_IAM"],
+                Capabilities=["CAPABILITY_IAM", "CAPABILITY_AUTO_EXPAND", "CAPABILITY_NAMED_IAM"],
             )
 
             click.echo(f"Waiting for stack {stack_name} to complete...")
