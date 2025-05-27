@@ -1,14 +1,11 @@
-# REQ_FN_0003: Stack infrastructure for session management
+# REQ-FN-0003: Management API
 
-Deploys necessary infrastructure for state management. The infrastructure covers the following resources:
-
-- PLLDBSessions - AWS::DynamoDB::Table for sessions and connections
-
-Also new command `plldb attach --stack-name <stack-name>` is added to the CLI. This command is used to attach the debugger to the stack.
+New API for managing the sessions and connections.
 
 ## Resources
 
-These resources are added to `template.yaml` file mamaged by `plldb.bootstrap.cloudformation` package.
+- PLLDBAPI - AWS::ApiGateway::RestApi for the management API
+- PLLDBSessions - AWS::DynamoDB::Table for sessions and connections
 
 ### PLLDBSessions - AWS::DynamoDB::Table for sessions and connections
 
@@ -30,34 +27,27 @@ Global Secondary Index:
   - GSI-ConnectionId
     Key:
       - ConnectionId
-      - SessionId
+      - SessionId 
 
-### PLLDBManagementAPI
+### PLLDBAPI Operations
 
-New REST API is added to the stack. This API is used to manage the sessions and connections.
+#### POST /sessions : Create a new session
 
-Authorization: AWSIAM for each operation
-
-#### POST /sessions
-
-Creates a new session.
-When this operation is invoked, the API creates a new session item in the PLLDBSessions table.
-
-The request body is:
+Request body:
 ```json
 {
   "stackName": "my-stack"
 }
 ```
 
-The response is 201 with the following body:
+Response body (201):
 ```json
 {
-  "sessionId": "1234567890"
+    "sessionId": "1234567890"
 }
 ```
 
-The session is stored in the PLLDBSessions table with the following attributes:
+This operation creates a new session in the PLLDBSessions table. The item is created with the following attributes:
 - SessionId = <random-uuid>
 - StackName = request.stackName
 - TTL = 1 hour
@@ -65,24 +55,13 @@ The session is stored in the PLLDBSessions table with the following attributes:
 
 The TTL is set to 1 hour.
 
-## Acceptance Criteria
+### Acceptance Criteria
 
-### Command Line Tool
+- new resources are added to the stack
+- api id is exposed as an output in CloudFormation template
+- REST API uses AWS IAM for authorization for all operations
 
-When the `plldb attach --stack-name <stack-name>` command is run, the stack is attached to the debugger.
-Use following steps to implement this:
+## Development Notes
 
-1. The command line tool discovers the REST API endpoint using boto3 api under current AWS IAM credentials.
-2. The command line tools makes POST request to /sessions
-3. The command line tool receives SessionId in the response.
-4. The command line tool discovers WebSocket API endpoint using boto3 api under current AWS IAM credentials.
-5. The command line tool creates a new WebSocket connection to the WebSocket API and sends the SessionId in the query parameter.
-6. The command line tool enters the loop that waits for the messages from the WebSocket API.
-
-### Backend
-
-- requests for sessions are stored in the PLLDBSessions table.
-- WebSocket connections are authorized by lambda authorizer.
-- Lambda authorizer checks the sessionId in the query parameter. It checks that there is a PENDING session with the same sessionId in PLLDBSessions table.
-- When the connection is authorized, the connectionId is set for the session and the status is set to ACTIVE.
-- When the connection is closed, the connectionId is set to null and the status is set to CLOSED.
+- `restapi.py` lambda handler is created in `plldb.bootstrap.cloudformation.lambda_functions` package.
+- `restapi.py` lambda handler is used to handle all operations of the REST API.
