@@ -4,94 +4,37 @@ When the `plldb bootstrap` command is run, it will also deploy the CloudFormatio
 
 ## Acceptance Criteria
 
-- when `plldb bootstrap setup` is run, it will deploy the CloudFormation stack for the infrastructure stack.
-- when the `plldb bootstrap destroy` is run, it will destroy the CloudFormation stack for the infrastructure stack.
-- the stack is deployed without any parameters.
-- the stack is deployed without any errors.
-- the stack is packaged to the bucket that was created in [REQ_FN_0001](./req_fn_0001.md) ticket.
-- the lambda function code is packaged to the bucket that was created in [REQ_FN_0001](./req_fn_0001.md) ticket.
-- the stack is named `plldb`.
-- the stack is vanilla CloudFormation stack, no Serverless transformations are used.
-- deployed resources are:
-  - PLDDBSessions : AWS::DynamoDB::Table
-  - PLLDBDebugger : AWS::DynamoDB::Table
-  - PLLDBDebuggerRole : AWS::IAM::Role
-  - PLLDBManagerRole : AWS::IAM::Role
-  - PLDDBAPI : AWS::ApiGatewayV2::Api
-- the stack is deployed under current AWS account and current users AWS IAM credentials.
+- the deployment is capable of packaging lambda functions into zip files.
+- the packaged lambda functions are uploaded to the s3 bucket that was created in [REQ_FN_0001](./req_fn_0001.md) ticket.
+- the packaged lambda functions use prefix that uses the `plldb` package version. for example `plldb/versions/0.1.0/lambda_functions/<function_name>.zip`
+- the template.yaml is updated with the reference to the packaged lambda functions.
+- the packaged template.yaml is uploaded to the s3 bucket that was created in [REQ_FN_0001](./req_fn_0001.md) ticket.
+- the packaged template.yaml uses prefix that uses the `plldb` package version. for example `plldb/versions/0.1.0/template.yaml`
+- the packaged template is installed as a CloudFormation stack
+- the stack name is `plldb`
+- the deployment is run when `plldb bootstrap setup` command is run.
+- when the `plldb bootstrap destroy` command is run, the stack is destroyed. packaged lambda functions are not deleted.
+- the progress of the packaging anddeployment is displayed to the user.
 
-See the [stack definition](#stack-definition) section for more details.
+### Stack resources
 
-## Out of scope
+#### PLLDBServiceRole - Service Role
 
-- the lambda functions for WebSocket API authorizer, connect, disconnect and default handlers are created but no implementation is provided in this ticket.
-- the API authorizer is implement to authorize all requests.
-- no database management is implemented in this ticket.
+- Service Role is created.
+- Role is used by the stack resources like lambda functions.
 
-## Stack definition
+#### PLLDBAPI - WebSocket API
 
-### PLDDBSessions
+- WebSocket API is created
+- WebSocket API handles connect, disconnect, authorize and default messages.
+- Each message is handled by a separate lambda function. Check [Implementation notes](#implementation-notes) section for more details.
 
-PLLDBSessions is a DynamoDB table that contains the informations about the sessions.
-It must have following properties:
-- SessionId : string
-- ConnectionId : string
-- StackName : string
+### Out of scope
 
-Primary key: SessionId
-Secondary indexes:
-- ConnectionId : string
-  - Partition key: ConnectionId
-  - Sort key: SessionId
-- StackName : string
-  - Partition key: StackName
-  - Sort key: ConnectionId
+- implementation of lambda functions. the lambda functions don't contain any implementation except from the default lambda handler.
 
-### PLLDBDebugger
+## Implementation notes
 
-PLLDBDebugger is a DynamoDB table that contains the informations about the debugger.
-It must have following properties:
-- RequestId : string
-
-Primary key: RequestId
-
-### PLLDBAPI
-
-This is a WebSocket API that's used to communicate with the debugger.
-
-- API uses custom lambda authorizer
-
-Expected lambda function structure:
-```
-/plldb/bootstrap/cloudformation/lambda_functions/
-├── ws_api_connect_handler.py
-├── ws_api_disconnect_handler.py
-├── ws_api_authorize_handler.py
-└── ws_api_default_handler.py
-```
-
-## Implementation Notes
-
-Use the phased deployment approach:
-- Package lambda functions into zip files.
-- Upload packaged lambda functions to s3 bucket.
-- Modify the template.yaml to reference the packaged lambda functions.
-- Deploy the stack.
-
-Follow these rules:
-- use `Ref` instead of `!Ref` in the template.yaml.
-- use `Fn::Sub` instead of `!Sub` in the template.yaml. 
-- use `Fn::GetAtt` instead of `!GetAtt` in the template.yaml.
-- use `Fn::Join` instead of `!Join` in the template.yaml.
-- use `Fn::Split` instead of `!Split` in the template.yaml.
-- use `Fn::Sub` instead of `!Sub` in the template.yaml.
-- use `Fn::Transform` instead of `!Transform` in the template.yaml.
-- the stack definition is in the `plldb.bootstrap.cloudformation` package.
-- create lambda function for connect, disconnect, authorize and default handlers. for example `ws_api_connect_handler.py` for connect handler.
-- template is named `template.yaml` and contains all stack resources.
-- all lambda functions are in the `plldb.bootstrap.cloudformation.lambda_functions` package.
-- lambda functions MUST NOT be inlined, they are included from `plldb.bootstrap.cloudformation.lambda_functions` package and packaged into s3 bucket.
-- the stack is deployed by boto3 cloudformation client.
-- the stack is deployed from the `plldb.core.bootstrap.cloudformation` package location.
-- the packaging uses prefix that matches the version on the `plldb` package. for example `plldb/versions/0.1.0/lambda_functions/<function_name>.zip`
-- the packaging mechanism properly handles placeholders in the template.yaml.
+- the `template.yaml` is located in the `plldb.bootstrap.cloudformation` package.
+- the lambda functions are located in the `plldb.bootstrap.cloudformation.lambda_functions` package.
+- the packaging function is implemented in `plldb.bootstrap.setup.BootstrapManager` class.
