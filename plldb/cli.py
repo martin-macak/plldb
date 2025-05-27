@@ -1,7 +1,7 @@
 import logging
 
-import click
 import boto3
+import click
 
 from plldb.bootstrap.setup import BootstrapManager
 

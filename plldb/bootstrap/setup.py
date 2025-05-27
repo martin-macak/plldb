@@ -1,3 +1,8 @@
+import os
+import tempfile
+import zipfile
+from pathlib import Path
+
 import boto3
 import click
 from botocore.exceptions import ClientError
@@ -8,11 +13,108 @@ class BootstrapManager:
         self.session = session
         self.s3_client = self.session.client("s3")
         self.sts_client = self.session.client("sts")
+        self.cloudformation_client = self.session.client("cloudformation")
+        self.package_version = self._get_package_version()
 
     def _get_bucket_name(self) -> str:
         account_id = self.sts_client.get_caller_identity()["Account"]
         region = self.session.region_name or "us-east-1"
         return f"plldb-core-infrastructure-{region}-{account_id}"
+
+    def _get_package_version(self) -> str:
+        try:
+            import importlib.metadata
+
+            return importlib.metadata.version("plldb")
+        except Exception:
+            return "0.1.0"
+
+    def _get_s3_key_prefix(self) -> str:
+        return f"plldb/versions/{self.package_version}"
+
+    def _package_lambda_function(self, function_name: str) -> bytes:
+        lambda_dir = Path(__file__).parent / "cloudformation" / "lambda_functions"
+        lambda_file = lambda_dir / f"{function_name}.py"
+
+        if not lambda_file.exists():
+            raise FileNotFoundError(f"Lambda function {function_name}.py not found")
+
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".zip", delete=False) as temp_file:
+            temp_path = temp_file.name
+
+        try:
+            with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(lambda_file, f"{function_name}.py")
+
+            with open(temp_path, "rb") as f:
+                return f.read()
+        finally:
+            os.unlink(temp_path)
+
+    def _upload_lambda_functions(self, bucket_name: str) -> None:
+        lambda_functions = ["connect", "disconnect", "authorize", "default"]
+        s3_key_prefix = self._get_s3_key_prefix()
+
+        for function_name in lambda_functions:
+            click.echo(f"Packaging lambda function: {function_name}")
+            function_zip = self._package_lambda_function(function_name)
+
+            s3_key = f"{s3_key_prefix}/lambda_functions/{function_name}.zip"
+            click.echo(f"Uploading to s3://{bucket_name}/{s3_key}")
+
+            self.s3_client.put_object(Bucket=bucket_name, Key=s3_key, Body=function_zip)
+
+    def _upload_template(self, bucket_name: str) -> str:
+        template_path = Path(__file__).parent / "cloudformation" / "template.yaml"
+        s3_key_prefix = self._get_s3_key_prefix()
+        s3_key = f"{s3_key_prefix}/template.yaml"
+
+        click.echo(f"Uploading CloudFormation template to s3://{bucket_name}/{s3_key}")
+
+        with open(template_path, "r") as f:
+            template_content = f.read()
+
+        self.s3_client.put_object(Bucket=bucket_name, Key=s3_key, Body=template_content.encode("utf-8"))
+
+        return s3_key
+
+    def _deploy_stack(self, bucket_name: str, template_s3_key: str) -> None:
+        stack_name = "plldb"
+        s3_key_prefix = self._get_s3_key_prefix()
+
+        template_url = f"https://{bucket_name}.s3.amazonaws.com/{template_s3_key}"
+
+        click.echo(f"Deploying CloudFormation stack: {stack_name}")
+
+        try:
+            self.cloudformation_client.describe_stacks(StackName=stack_name)
+            click.echo(f"Stack {stack_name} already exists, updating...")
+            operation = self.cloudformation_client.update_stack
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ValidationError" and "does not exist" in str(e):
+                click.echo(f"Creating new stack: {stack_name}")
+                operation = self.cloudformation_client.create_stack
+            else:
+                raise
+
+        try:
+            operation(
+                StackName=stack_name,
+                TemplateURL=template_url,
+                Parameters=[{"ParameterKey": "S3Bucket", "ParameterValue": bucket_name}, {"ParameterKey": "S3KeyPrefix", "ParameterValue": s3_key_prefix}],
+                Capabilities=["CAPABILITY_IAM"],
+            )
+
+            click.echo(f"Waiting for stack {stack_name} to complete...")
+            waiter = self.cloudformation_client.get_waiter("stack_create_complete" if operation == self.cloudformation_client.create_stack else "stack_update_complete")
+            waiter.wait(StackName=stack_name)
+            click.echo(f"Stack {stack_name} deployed successfully")
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ValidationError" and "No updates are to be performed" in str(e):
+                click.echo(f"Stack {stack_name} is already up to date")
+            else:
+                raise
 
     def setup(self) -> None:
         bucket_name = self._get_bucket_name()
@@ -49,10 +151,39 @@ class BootstrapManager:
 
         click.echo("Bootstrap setup completed successfully")
 
+        click.echo("\nPackaging and uploading Lambda functions...")
+        self._upload_lambda_functions(bucket_name)
+
+        click.echo("\nUploading CloudFormation template...")
+        template_s3_key = self._upload_template(bucket_name)
+
+        click.echo("\nDeploying CloudFormation stack...")
+        self._deploy_stack(bucket_name, template_s3_key)
+
+        click.echo("\nBootstrap infrastructure deployment completed successfully")
+
     def destroy(self) -> None:
         bucket_name = self._get_bucket_name()
+        stack_name = "plldb"
 
-        click.echo(f"Destroying core infrastructure bucket: {bucket_name}")
+        click.echo(f"Destroying CloudFormation stack: {stack_name}")
+
+        try:
+            self.cloudformation_client.describe_stacks(StackName=stack_name)
+            click.echo(f"Deleting stack {stack_name}...")
+            self.cloudformation_client.delete_stack(StackName=stack_name)
+
+            click.echo(f"Waiting for stack {stack_name} to be deleted...")
+            waiter = self.cloudformation_client.get_waiter("stack_delete_complete")
+            waiter.wait(StackName=stack_name)
+            click.echo(f"Stack {stack_name} deleted successfully")
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ValidationError" and "does not exist" in str(e):
+                click.echo(f"Stack {stack_name} does not exist")
+            else:
+                raise
+
+        click.echo(f"\nDestroying core infrastructure bucket: {bucket_name}")
 
         try:
             self.s3_client.head_bucket(Bucket=bucket_name)

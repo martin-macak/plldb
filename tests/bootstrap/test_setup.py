@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from botocore.exceptions import ClientError
 
@@ -15,7 +17,11 @@ class TestBootstrapManager:
         manager = BootstrapManager(session=mock_aws_session)
         s3_client = mock_aws_session.client("s3")
 
-        manager.setup()
+        # Mock the new methods to avoid CloudFormation calls
+        with patch.object(manager, "_upload_lambda_functions"):
+            with patch.object(manager, "_upload_template", return_value="test-key"):
+                with patch.object(manager, "_deploy_stack"):
+                    manager.setup()
 
         response = s3_client.head_bucket(Bucket="plldb-core-infrastructure-us-east-1-123456789012")
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
@@ -33,7 +39,11 @@ class TestBootstrapManager:
 
         s3_client.create_bucket(Bucket="plldb-core-infrastructure-us-east-1-123456789012")
 
-        manager.setup()
+        # Mock the new methods to avoid CloudFormation calls
+        with patch.object(manager, "_upload_lambda_functions"):
+            with patch.object(manager, "_upload_template", return_value="test-key"):
+                with patch.object(manager, "_deploy_stack"):
+                    manager.setup()
 
         response = s3_client.head_bucket(Bucket="plldb-core-infrastructure-us-east-1-123456789012")
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
@@ -50,7 +60,11 @@ class TestBootstrapManager:
             manager = BootstrapManager(session=eu_session)
             s3_client = eu_session.client("s3")
 
-            manager.setup()
+            # Mock the new methods to avoid CloudFormation calls
+            with patch.object(manager, "_upload_lambda_functions"):
+                with patch.object(manager, "_upload_template", return_value="test-key"):
+                    with patch.object(manager, "_deploy_stack"):
+                        manager.setup()
 
             response = s3_client.head_bucket(Bucket="plldb-core-infrastructure-eu-west-1-123456789012")
             assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
@@ -66,7 +80,14 @@ class TestBootstrapManager:
             Body=b"test content",
         )
 
-        manager.destroy()
+        # Mock the CloudFormation operations
+        with patch.object(manager.cloudformation_client, "describe_stacks") as mock_describe:
+            with patch.object(manager.cloudformation_client, "delete_stack"):
+                with patch.object(manager.cloudformation_client, "get_waiter") as mock_waiter:
+                    mock_describe.side_effect = ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
+                    mock_waiter.return_value.wait.return_value = None
+
+                    manager.destroy()
 
         with pytest.raises(ClientError) as exc_info:
             s3_client.head_bucket(Bucket="plldb-core-infrastructure-us-east-1-123456789012")
@@ -75,7 +96,14 @@ class TestBootstrapManager:
     def test_destroy_idempotent_when_bucket_not_exists(self, mock_aws_session):
         manager = BootstrapManager(session=mock_aws_session)
 
-        manager.destroy()
+        # Mock the CloudFormation operations
+        with patch.object(manager.cloudformation_client, "describe_stacks") as mock_describe:
+            with patch.object(manager.cloudformation_client, "delete_stack"):
+                with patch.object(manager.cloudformation_client, "get_waiter") as mock_waiter:
+                    mock_describe.side_effect = ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
+                    mock_waiter.return_value.wait.return_value = None
+
+                    manager.destroy()
 
     def test_destroy_handles_multiple_objects(self, mock_aws_session):
         manager = BootstrapManager(session=mock_aws_session)
@@ -90,7 +118,14 @@ class TestBootstrapManager:
                 Body=b"test content",
             )
 
-        manager.destroy()
+        # Mock the CloudFormation operations
+        with patch.object(manager.cloudformation_client, "describe_stacks") as mock_describe:
+            with patch.object(manager.cloudformation_client, "delete_stack"):
+                with patch.object(manager.cloudformation_client, "get_waiter") as mock_waiter:
+                    mock_describe.side_effect = ClientError({"Error": {"Code": "ValidationError", "Message": "Stack does not exist"}}, "DescribeStacks")
+                    mock_waiter.return_value.wait.return_value = None
+
+                    manager.destroy()
 
         with pytest.raises(ClientError) as exc_info:
             s3_client.head_bucket(Bucket="plldb-core-infrastructure-us-east-1-123456789012")

@@ -1,4 +1,5 @@
 from typing import Generator
+
 import pytest
 from boto3.session import Session
 
@@ -6,6 +7,7 @@ from boto3.session import Session
 @pytest.fixture
 def mock_aws_session(monkeypatch) -> Generator[Session, None, None]:
     import os
+
     import boto3
     import moto
 

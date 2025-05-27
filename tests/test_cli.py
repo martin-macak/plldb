@@ -1,6 +1,8 @@
+from unittest.mock import patch
+
+import boto3
 import pytest
 from click.testing import CliRunner
-import boto3
 
 from plldb.cli import cli
 
@@ -47,7 +49,14 @@ def test_bootstrap_without_subcommand_runs_setup(runner, mock_aws_session, monke
 
     monkeypatch.setattr(boto3, "Session", mock_session_factory)
 
-    result = runner.invoke(cli, ["bootstrap"])
+    # Mock the BootstrapManager methods that would cause CloudFormation issues
+    from plldb.bootstrap.setup import BootstrapManager
+
+    with patch.object(BootstrapManager, "_upload_lambda_functions"):
+        with patch.object(BootstrapManager, "_upload_template", return_value="test-key"):
+            with patch.object(BootstrapManager, "_deploy_stack"):
+                result = runner.invoke(cli, ["bootstrap"])
+
     if result.exit_code != 0:
         print(f"Exit code: {result.exit_code}")
         print(f"Output: {result.output}")

@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'PLLDB Infrastructure Stack'
+
+Resources:
+  PLLDBServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PLLDBServicePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
+
+  PLLDBConnectFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: plldb-connect
+      Handler: connect.handler
+      Runtime: python3.13
+      Code:
+        S3Bucket: !Sub '${S3Bucket}'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/connect.zip'
+      Role: !GetAtt PLLDBServiceRole.Arn
+      Timeout: 30
+
+  PLLDBDisconnectFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: plldb-disconnect
+      Handler: disconnect.handler
+      Runtime: python3.13
+      Code:
+        S3Bucket: !Sub '${S3Bucket}'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/disconnect.zip'
+      Role: !GetAtt PLLDBServiceRole.Arn
+      Timeout: 30
+
+  PLLDBAuthorizeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: plldb-authorize
+      Handler: authorize.handler
+      Runtime: python3.13
+      Code:
+        S3Bucket: !Sub '${S3Bucket}'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/authorize.zip'
+      Role: !GetAtt PLLDBServiceRole.Arn
+      Timeout: 30
+
+  PLLDBDefaultFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: plldb-default
+      Handler: default.handler
+      Runtime: python3.13
+      Code:
+        S3Bucket: !Sub '${S3Bucket}'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/default.zip'
+      Role: !GetAtt PLLDBServiceRole.Arn
+      Timeout: 30
+
+  PLLDBAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: PLLDBAPI
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  PLLDBConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBConnectFunction.Arn}/invocations'
+
+  PLLDBDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDisconnectFunction.Arn}/invocations'
+
+  PLLDBAuthorizeIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBAuthorizeFunction.Arn}/invocations'
+
+  PLLDBDefaultIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PLLDBDefaultFunction.Arn}/invocations'
+
+  PLLDBConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      RouteKey: $connect
+      AuthorizationType: NONE
+      Target: !Sub 'integrations/${PLLDBConnectIntegration}'
+
+  PLLDBDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      Target: !Sub 'integrations/${PLLDBDisconnectIntegration}'
+
+  PLLDBAuthorizeRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      RouteKey: authorize
+      AuthorizationType: NONE
+      Target: !Sub 'integrations/${PLLDBAuthorizeIntegration}'
+
+  PLLDBDefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      RouteKey: $default
+      AuthorizationType: NONE
+      Target: !Sub 'integrations/${PLLDBDefaultIntegration}'
+
+  PLLDBConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PLLDBConnectFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$connect'
+
+  PLLDBDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PLLDBDisconnectFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$disconnect'
+
+  PLLDBAuthorizePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PLLDBAuthorizeFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/authorize'
+
+  PLLDBDefaultPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PLLDBDefaultFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBAPI}/*/$default'
+
+  PLLDBDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - PLLDBConnectRoute
+      - PLLDBDisconnectRoute
+      - PLLDBAuthorizeRoute
+      - PLLDBDefaultRoute
+    Properties:
+      ApiId: !Ref PLLDBAPI
+
+  PLLDBStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref PLLDBAPI
+      DeploymentId: !Ref PLLDBDeployment
+      StageName: prod
+
+Parameters:
+  S3Bucket:
+    Type: String
+    Description: S3 bucket containing the lambda function packages
+  S3KeyPrefix:
+    Type: String
+    Description: S3 key prefix for lambda function packages
+
+Outputs:
+  WebSocketURL:
+    Description: WebSocket API URL
+    Value: !Sub 'wss://${PLLDBAPI}.execute-api.${AWS::Region}.amazonaws.com/${PLLDBStage}'

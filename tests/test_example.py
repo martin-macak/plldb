@@ -1,7 +1,4 @@
-from typing import Generator
-
 import boto3
-import pytest
 
 
 class TestAWSResources:
