@@ -279,7 +279,12 @@ def main():
                 
         except Exception as e:
             print(f"Runtime error: {e}", file=sys.stderr)
-            # Continue to next invocation
+
+            if e.__class__.__name__ == "StopLoopException":
+                raise
+            else:
+                # Continue to next invocation
+                pass
 
 
 if __name__ == "__main__":

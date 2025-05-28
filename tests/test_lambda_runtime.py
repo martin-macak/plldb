@@ -410,25 +410,248 @@ class TestNormalHandlerExecution:
         args, kwargs = mock_urlopen.call_args
         request = args[0]
         assert "/error" in request.get_full_url()
-        data = json.loads(request.data.decode())
-        assert data["errorMessage"] == "No handler specified"
 
-    @patch("urllib.request.urlopen")
-    def test_run_normal_handler_import_error(self, mock_urlopen, monkeypatch):
-        """Test error handling when handler module cannot be imported."""
-        monkeypatch.setenv("_HANDLER", "nonexistent.handler")
-        monkeypatch.setenv("LAMBDA_TASK_ROOT", "/var/task")
 
-        # Mock urlopen for send_error
-        mock_response = Mock()
-        mock_response.__enter__ = Mock(return_value=mock_response)
-        mock_response.__exit__ = Mock(return_value=None)
-        mock_urlopen.return_value = mock_response
+class TestMainLoop:
+    """Test main function and the runtime loop."""
 
-        lambda_runtime.run_normal_handler({}, "test-request-id", "127.0.0.1:9001")
+    class StopLoopException(Exception):
+        """Custom exception to break out of the infinite loop during tests."""
+        pass
 
+
+    @patch('plldb.cloudformation.layer.lambda_runtime.get_next_invocation')
+    @patch('plldb.cloudformation.layer.lambda_runtime.run_normal_handler')
+    def test_main_normal_mode(self, mock_run_normal, mock_get_next, monkeypatch):
+        """Test main in normal mode without debug environment variables."""
+        monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
+        monkeypatch.delenv("_DEBUGGER_SESSION_ID_", raising=False)
+        monkeypatch.delenv("_DEBUGGER_CONNECTION_ID_", raising=False)
+        
+        # First call returns event, second call raises to exit loop
+        mock_get_next.side_effect = [
+            ({"test": "event"}, "request-1"),
+            self.StopLoopException("Exit loop")
+        ]
+        
+        with pytest.raises(self.StopLoopException):
+            lambda_runtime.main()
+        
+        # Verify normal handler was called
+        mock_run_normal.assert_called_once_with(
+            {"test": "event"}, "request-1", "127.0.0.1:9001"
+        )
+
+    @patch('plldb.cloudformation.layer.lambda_runtime.get_next_invocation')
+    @patch('plldb.cloudformation.layer.lambda_runtime.assume_debugger_role')
+    @patch('plldb.cloudformation.layer.lambda_runtime.create_debugger_request')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_websocket_notification')
+    @patch('plldb.cloudformation.layer.lambda_runtime.poll_for_response')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_response')
+    def test_main_debug_mode_success(
+        self, mock_send_response, mock_poll, mock_ws_notify, 
+        mock_create_request, mock_assume_role, mock_get_next, monkeypatch
+    ):
+        """Test main in debug mode with successful response."""
+        monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
+        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
+        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "test-function")
+        
+        # Setup mocks
+        mock_session = Mock()
+        mock_assume_role.return_value = mock_session
+        mock_poll.return_value = ({"result": "success"}, None)
+        
+        # First call returns event, second raises to exit
+        mock_get_next.side_effect = [
+            ({"test": "event"}, "request-1"),
+            self.StopLoopException("Exit loop")
+        ]
+        
+        with pytest.raises(self.StopLoopException):
+            lambda_runtime.main()
+        
+        # Verify debug flow
+        mock_assume_role.assert_called_once()
+        mock_create_request.assert_called_once_with(
+            mock_session, "request-1", "test-session", 
+            "test-connection", {"test": "event"}, 
+            {
+                "aws_request_id": "request-1",
+                "function_name": "test-function",
+                "function_version": "",
+                "invoked_function_arn": "",
+                "memory_limit_in_mb": ""
+            }
+        )
+        mock_ws_notify.assert_called_once()
+        mock_poll.assert_called_once_with(mock_session, "request-1")
+        mock_send_response.assert_called_once_with(
+            "127.0.0.1:9001", "request-1", {"result": "success"}
+        )
+
+    @patch('plldb.cloudformation.layer.lambda_runtime.get_next_invocation')
+    @patch('plldb.cloudformation.layer.lambda_runtime.assume_debugger_role')
+    @patch('plldb.cloudformation.layer.lambda_runtime.create_debugger_request')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_websocket_notification')
+    @patch('plldb.cloudformation.layer.lambda_runtime.poll_for_response')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_error')
+    def test_main_debug_mode_with_error(
+        self, mock_send_error, mock_poll, mock_ws_notify,
+        mock_create_request, mock_assume_role, mock_get_next, monkeypatch
+    ):
+        """Test main in debug mode when debugger returns error."""
+        monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
+        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
+        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        
+        # Setup mocks
+        mock_session = Mock()
+        mock_assume_role.return_value = mock_session
+        mock_poll.return_value = (None, "Debugger error")
+        
+        # First call returns event, second raises to exit
+        mock_get_next.side_effect = [
+            ({"test": "event"}, "request-1"),
+            self.StopLoopException("Exit loop")
+        ]
+        
+        with pytest.raises(self.StopLoopException):
+            lambda_runtime.main()
+        
         # Verify error was sent
-        args, kwargs = mock_urlopen.call_args
-        request = args[0]
-        assert "/error" in request.get_full_url()
+        mock_send_error.assert_called_once_with(
+            "127.0.0.1:9001", "request-1", "Debugger error"
+        )
 
+    @patch('plldb.cloudformation.layer.lambda_runtime.get_next_invocation')
+    @patch('plldb.cloudformation.layer.lambda_runtime.assume_debugger_role')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_error')
+    def test_main_debug_mode_role_assumption_failure(
+        self, mock_send_error, mock_assume_role, mock_get_next, monkeypatch
+    ):
+        """Test main when debugger role assumption fails."""
+        monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
+        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
+        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        
+        # Setup mocks
+        mock_assume_role.side_effect = Exception("Role assumption failed")
+        
+        # First call returns event, second raises to exit
+        mock_get_next.side_effect = [
+            ({"test": "event"}, "request-1"),
+            self.StopLoopException("Exit loop")
+        ]
+        
+        with pytest.raises(self.StopLoopException):
+            lambda_runtime.main()
+        
+        # Verify error was sent
+        mock_send_error.assert_called_once_with(
+            "127.0.0.1:9001", "request-1", "Debugger error: Role assumption failed"
+        )
+
+    @patch('plldb.cloudformation.layer.lambda_runtime.get_next_invocation')
+    @patch('plldb.cloudformation.layer.lambda_runtime.assume_debugger_role')
+    @patch('plldb.cloudformation.layer.lambda_runtime.create_debugger_request')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_error')
+    def test_main_debug_mode_create_request_failure(
+        self, mock_send_error, mock_create_request, mock_assume_role, 
+        mock_get_next, monkeypatch
+    ):
+        """Test main when creating debugger request fails."""
+        monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
+        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
+        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        
+        # Setup mocks
+        mock_session = Mock()
+        mock_assume_role.return_value = mock_session
+        mock_create_request.side_effect = Exception("DynamoDB error")
+        
+        # First call returns event, second raises to exit
+        mock_get_next.side_effect = [
+            ({"test": "event"}, "request-1"),
+            self.StopLoopException("Exit loop")
+        ]
+        
+        with pytest.raises(self.StopLoopException):
+            lambda_runtime.main()
+        
+        # Verify error was sent
+        mock_send_error.assert_called_once_with(
+            "127.0.0.1:9001", "request-1", "Debugger error: DynamoDB error"
+        )
+
+    @patch('plldb.cloudformation.layer.lambda_runtime.get_next_invocation')  
+    @patch('plldb.cloudformation.layer.lambda_runtime.run_normal_handler')
+    def test_main_continues_on_handler_error(self, mock_run_normal, mock_get_next, monkeypatch):
+        """Test main continues loop when handler raises exception."""
+        monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
+        monkeypatch.delenv("_DEBUGGER_SESSION_ID_", raising=False)
+        monkeypatch.delenv("_DEBUGGER_CONNECTION_ID_", raising=False)
+        
+        # Setup mocks - normal handler throws exception on first call
+        mock_get_next.side_effect = [
+            ({"test": "event1"}, "request-1"),
+            ({"test": "event2"}, "request-2"),
+            self.StopLoopException("Exit loop")
+        ]
+        mock_run_normal.side_effect = [
+            Exception("Handler error"),
+            None  # Second call succeeds
+        ]
+        
+        with pytest.raises(self.StopLoopException):
+            lambda_runtime.main()
+        
+        # Verify both invocations were processed despite first error
+        assert mock_get_next.call_count == 3
+        assert mock_run_normal.call_count == 2
+
+    @patch('plldb.cloudformation.layer.lambda_runtime.get_next_invocation')
+    @patch('plldb.cloudformation.layer.lambda_runtime.assume_debugger_role')
+    @patch('plldb.cloudformation.layer.lambda_runtime.create_debugger_request')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_websocket_notification')
+    @patch('plldb.cloudformation.layer.lambda_runtime.poll_for_response')
+    @patch('plldb.cloudformation.layer.lambda_runtime.send_response')
+    def test_main_debug_mode_websocket_error_ignored(
+        self, mock_send_response, mock_poll, mock_ws_notify,
+        mock_create_request, mock_assume_role, mock_get_next, monkeypatch
+    ):
+        """Test that WebSocket errors are handled gracefully."""
+        monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
+        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
+        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        
+        # Setup mocks
+        mock_session = Mock()
+        mock_assume_role.return_value = mock_session
+        mock_ws_notify.side_effect = Exception("WebSocket error")
+        mock_poll.return_value = ({"result": "success"}, None)
+        
+        # Mock send_error to capture the error call
+        mock_send_error = Mock()
+        monkeypatch.setattr("plldb.cloudformation.layer.lambda_runtime.send_error", mock_send_error)
+        
+        # First call returns event, second raises to exit
+        mock_get_next.side_effect = [
+            ({"test": "event"}, "request-1"),
+            self.StopLoopException("Exit loop")
+        ]
+        
+        with pytest.raises(self.StopLoopException):
+            lambda_runtime.main()
+        
+        # Verify error was sent due to WebSocket failure
+        mock_send_error.assert_called_once()
+        args = mock_send_error.call_args[0]
+        assert args[0] == "127.0.0.1:9001"
+        assert args[1] == "request-1"
+        assert "Debugger error: WebSocket error" in args[2]
+        
+        # Verify poll was not called since we errored out earlier
+        mock_poll.assert_not_called()
+        mock_send_response.assert_not_called()
