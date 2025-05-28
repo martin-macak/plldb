@@ -109,6 +109,19 @@ Resources:
                 Resource:
                   - !GetAtt PLLDBSessions.Arn
                   - !Sub '${PLLDBSessions.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:ListStackResources'
+                  - 'cloudformation:DescribeStackResources'
+                  - 'cloudformation:DescribeStacks'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'lambda:GetFunction'
+                  - 'lambda:GetFunctionConfiguration'
+                  - 'lambda:UpdateFunctionConfiguration'
+                  - 'lambda:ListLayers'
+                Resource: '*'
 
   PLLDBDebuggerRole:
     Type: AWS::IAM::Role
@@ -166,6 +179,7 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
+          AWS_CLOUDFORMATION_STACK_NAME: !Ref AWS::StackName
 
   PLLDBWebSocketDisconnectFunction:
     Type: AWS::Lambda::Function
@@ -181,6 +195,7 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
+          AWS_CLOUDFORMATION_STACK_NAME: !Ref AWS::StackName
 
   PLLDBWebSocketAuthorizeFunction:
     Type: AWS::Lambda::Function
@@ -196,6 +211,7 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
+          AWS_CLOUDFORMATION_STACK_NAME: !Ref AWS::StackName
 
   PLLDBWebSocketDefaultFunction:
     Type: AWS::Lambda::Function
@@ -211,6 +227,7 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
+          AWS_CLOUDFORMATION_STACK_NAME: !Ref AWS::StackName
 
   PLLDBRestApiFunction:
     Type: AWS::Lambda::Function

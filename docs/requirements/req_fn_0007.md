@@ -21,7 +21,6 @@ All actions performed in the layer muse be performed under LLDBDebuggerRole role
 
 - Layer code is implemented in `plldb/bootstrap/cloudformation/layer/` directory
 - Layer code follows the specifications required by the AWS Lambda Runtime API so 
-  - it overrides the default runtime by `AWS_LAMBDA_EXEC_WRAPPER` environment variable
   - it registers to the Lambda Runtime API
   - when the event is received, it creates a new item in the PLLDBDebugger table with. Check the table schema in [REQ-FN-0006](./req_fn_0006.md)
   - it starts a polling loop that waits for the response from the debugger
