@@ -4,10 +4,10 @@ import logging
 import boto3
 import click
 
-from plldb.bootstrap.setup import BootstrapManager
-from plldb.core.rest_client import RestApiClient
-from plldb.core.stack_discovery import StackDiscovery
-from plldb.core.websocket_client import WebSocketClient
+from plldb.setup import BootstrapManager
+from plldb.rest_client import RestApiClient
+from plldb.stack_discovery import StackDiscovery
+from plldb.websocket_client import WebSocketClient
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@
 import json
 import pytest
 from unittest.mock import Mock, patch
-from plldb.bootstrap.cloudformation.lambda_functions.websocket_connect import lambda_handler
+from plldb.cloudformation.lambda_functions.websocket_connect import lambda_handler
 
 
 class TestWebSocketConnect:

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import websockets
 
-from plldb.core.websocket_client import WebSocketClient
+from plldb.websocket_client import WebSocketClient
 
 
 class TestWebSocketClient:
@@ -22,7 +22,7 @@ class TestWebSocketClient:
         """Test WebSocket connection."""
         mock_ws = AsyncMock()
 
-        with patch("plldb.core.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
+        with patch("plldb.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
             mock_connect.return_value = mock_ws
 
             client = WebSocketClient("wss://example.com/ws", "test-session-id")
@@ -102,7 +102,7 @@ class TestWebSocketClient:
             mock_loop.return_value.add_signal_handler = Mock()
             mock_loop.return_value.remove_signal_handler = Mock()
 
-            with patch("plldb.core.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
+            with patch("plldb.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
                 mock_connect.return_value = mock_ws
 
                 await client.run_loop(handler)
@@ -124,7 +124,7 @@ class TestWebSocketClient:
             mock_loop.return_value.add_signal_handler = Mock()
             mock_loop.return_value.remove_signal_handler = Mock()
 
-            with patch("plldb.core.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
+            with patch("plldb.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
                 mock_connect.return_value = mock_ws
 
                 # Stop the loop after first iteration

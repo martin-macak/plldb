@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from plldb.core.rest_client import RestApiClient
+from plldb.rest_client import RestApiClient
 
 
 class TestRestApiClient:

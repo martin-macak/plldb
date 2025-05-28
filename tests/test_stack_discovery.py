@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 from botocore.exceptions import ClientError
 
-from plldb.core.stack_discovery import StackDiscovery
+from plldb.stack_discovery import StackDiscovery
 
 
 class TestStackDiscovery:

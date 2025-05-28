@@ -56,7 +56,7 @@ The project is built with:
 
 The codebase follows a modular architecture:
 - `plldb.cli` - Main CLI entry point using Click framework
-- `plldb.core.bootstrap` - Infrastructure setup module for Lambda debugging
+- `plldb.setup` - Infrastructure setup module for Lambda debugging
 - Core functionality is separated from CLI for better testability
 
 The project uses modern Python tooling:

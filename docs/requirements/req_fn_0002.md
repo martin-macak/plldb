@@ -35,6 +35,6 @@ When the `plldb bootstrap` command is run, it will also deploy the CloudFormatio
 
 ## Implementation notes
 
-- the `template.yaml` is located in the `plldb.bootstrap.cloudformation` package.
-- the lambda functions are located in the `plldb.bootstrap.cloudformation.lambda_functions` package.
-- the packaging function is implemented in `plldb.bootstrap.setup.BootstrapManager` class.
+- the `template.yaml` is located in the `plldb.cloudformation` package.
+- the lambda functions are located in the `plldb.cloudformation.lambda_functions` package.
+- the packaging function is implemented in `plldb.setup.BootstrapManager` class.

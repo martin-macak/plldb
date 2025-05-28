@@ -63,5 +63,5 @@ The TTL is set to 1 hour.
 
 ## Development Notes
 
-- `restapi.py` lambda handler is created in `plldb.bootstrap.cloudformation.lambda_functions` package.
+- `restapi.py` lambda handler is created in `plldb.cloudformation.lambda_functions` package.
 - `restapi.py` lambda handler is used to handle all operations of the REST API.

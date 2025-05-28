@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, patch
-from plldb.bootstrap.cloudformation.lambda_functions.websocket_authorize import lambda_handler, generate_policy
+from plldb.cloudformation.lambda_functions.websocket_authorize import lambda_handler, generate_policy
 
 
 class TestWebSocketAuthorize:

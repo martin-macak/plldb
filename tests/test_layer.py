@@ -3,7 +3,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from plldb.bootstrap.setup import BootstrapManager
+from plldb.setup import BootstrapManager
 
 
 class TestLambdaLayer:
@@ -11,7 +11,7 @@ class TestLambdaLayer:
 
     def test_layer_files_exist(self):
         """Verify that layer files are present in the codebase."""
-        layer_dir = Path(__file__).parent.parent.parent / "plldb" / "bootstrap" / "cloudformation" / "layer"
+        layer_dir = Path(__file__).parent.parent / "plldb" / "cloudformation" / "layer"
         
         assert layer_dir.exists()
         assert (layer_dir / "bootstrap").exists()
@@ -80,10 +80,10 @@ class TestLambdaLayer:
 
     def test_cloudformation_template_includes_layer(self):
         """Verify that the CloudFormation template includes the layer resource."""
-        template_path = Path(__file__).parent.parent.parent / "plldb" / "bootstrap" / "cloudformation" / "template.yaml"
+        template_path = Path(__file__).parent.parent / "plldb" / "cloudformation" / "template.yaml"
         
         # Import the custom loader from our other test
-        from tests.bootstrap.test_cloudformation_template import CloudFormationYAMLLoader
+        from tests.test_cloudformation_template import CloudFormationYAMLLoader
         import yaml
         
         with open(template_path, "r") as f:

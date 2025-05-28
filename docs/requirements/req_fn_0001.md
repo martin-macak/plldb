@@ -21,7 +21,7 @@ The `setup` sub-command is the default command, so if `plldb bootstrap` is run w
 ## Implementation Notes
 
 - don't put the logic in the CLI commands
-- use `plldb.core.bootstrap` package.
-- put the logic for setup and destroy in the `plldb.bootstrap.setup` module.
-- put tests for the packages in `plldb` package into separate directories in `tests`. for example `tests/bootstrap/test_setup.py` should be used to test the `plldb.bootstrap.setup` module.
+- use `plldb.cloudformation` package.
+- put the logic for setup and destroy in the `plldb.setup` module.
+- put tests for the packages in `plldb` package into separate directories in `tests`. for example `tests/test_setup.py` should be used to test the `plldb.setup` module.
 - prefer using `mock_aws_session` fixture from `tests/conftest.py` to mock the AWS session and AWS resources. this helps to validate calls because moto validates client calls.

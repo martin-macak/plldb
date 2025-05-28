@@ -53,7 +53,7 @@ def test_bootstrap_without_subcommand_runs_setup(runner, mock_aws_session, monke
     monkeypatch.setattr(boto3, "Session", mock_session_factory)
 
     # Mock the BootstrapManager methods that would cause CloudFormation issues
-    from plldb.bootstrap.setup import BootstrapManager
+    from plldb.setup import BootstrapManager
 
     monkeypatch.setattr(BootstrapManager, "_upload_lambda_functions", lambda self, bucket_name: None)
     monkeypatch.setattr(BootstrapManager, "_upload_template", lambda self, bucket_name: "test-key")

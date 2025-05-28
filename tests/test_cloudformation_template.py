@@ -27,7 +27,7 @@ class TestCloudFormationTemplate:
 
     def test_template_resources_exist(self):
         """Verify that all required resources are defined in the template."""
-        template_path = Path(__file__).parent.parent.parent / "plldb" / "bootstrap" / "cloudformation" / "template.yaml"
+        template_path = Path(__file__).parent.parent / "plldb" / "cloudformation" / "template.yaml"
         
         with open(template_path, "r") as f:
             template = yaml.load(f, Loader=CloudFormationYAMLLoader)
@@ -97,7 +97,7 @@ class TestCloudFormationTemplate:
 
     def test_debugger_role_can_access_debugger_table(self):
         """Verify that PLLDBDebuggerRole has proper access to PLLDBDebugger table."""
-        template_path = Path(__file__).parent.parent.parent / "plldb" / "bootstrap" / "cloudformation" / "template.yaml"
+        template_path = Path(__file__).parent.parent / "plldb" / "cloudformation" / "template.yaml"
         
         with open(template_path, "r") as f:
             template = yaml.load(f, Loader=CloudFormationYAMLLoader)
@@ -122,7 +122,7 @@ class TestCloudFormationTemplate:
 
     def test_existing_resources_still_present(self):
         """Verify that existing resources are not affected by new additions."""
-        template_path = Path(__file__).parent.parent.parent / "plldb" / "bootstrap" / "cloudformation" / "template.yaml"
+        template_path = Path(__file__).parent.parent / "plldb" / "cloudformation" / "template.yaml"
         
         with open(template_path, "r") as f:
             template = yaml.load(f, Loader=CloudFormationYAMLLoader)

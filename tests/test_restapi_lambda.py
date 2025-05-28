@@ -1,7 +1,7 @@
 import json
 import time
 
-from plldb.bootstrap.cloudformation.lambda_functions.restapi import lambda_handler
+from plldb.cloudformation.lambda_functions.restapi import lambda_handler
 
 
 class TestRestApiLambda:
