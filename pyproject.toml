@@ -15,6 +15,7 @@ requires-python = ">=3.13"
 dependencies = [
     "boto3>=1.38.23",
     "click>=8.2.1",
+    "pyyaml>=6.0.2",
     "requests>=2.32.0",
     "websockets>=14.1",
 ]
