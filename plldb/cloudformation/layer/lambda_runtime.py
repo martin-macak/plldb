@@ -218,8 +218,17 @@ def main():
                     # Create request in DynamoDB
                     create_debugger_request(debugger_session, request_id, session_id, connection_id, event, context)
 
-                    # Send WebSocket notification
-                    send_websocket_notification(debugger_session, connection_id, {"action": "invocation", "requestId": request_id, "sessionId": session_id})
+                    # Send WebSocket notification with DebuggerRequest schema
+                    websocket_message = {
+                        "requestId": request_id,
+                        "sessionId": session_id,
+                        "connectionId": connection_id,
+                        "lambdaFunctionName": os.environ.get("AWS_LAMBDA_FUNCTION_NAME", ""),
+                        "lambdaFunctionVersion": os.environ.get("AWS_LAMBDA_FUNCTION_VERSION", ""),
+                        "event": json.dumps(event),
+                        "environmentVariables": dict(os.environ),
+                    }
+                    send_websocket_notification(debugger_session, connection_id, websocket_message)
 
                     # Poll for response
                     response, error = poll_for_response(debugger_session, request_id)

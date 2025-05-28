@@ -7,7 +7,7 @@ New role for the debugger lambda functions and new table for requests.
 - PLLDBDebuggerRole - AWS::IAM::Role for the role assumed by the debugger lambda functions
 - PLLDBDebugger - AWS::DynamoDB::Table for debugger requests and responses
 
-### PLLDBSessions - AWS::DynamoDB::Table for sessions and connections
+### PLLDBDebugger - AWS::DynamoDB::Table for debugger requests and responses
 
 | Attribute            | Type       | Description                                        |
 | -------------------- | ---------- | -------------------------------------------------- |

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import websockets
 
+from plldb.protocol import DebuggerResponse
 from plldb.websocket_client import WebSocketClient
 
 
@@ -88,29 +89,51 @@ class TestWebSocketClient:
         """Test message loop with handler."""
         # Mock WebSocket
         mock_ws = AsyncMock()
-        messages = ['{"type": "message1"}', '{"type": "message2"}']
+        messages = [
+            json.dumps(
+                {"requestId": "req-1", "sessionId": "test-session-id", "connectionId": "conn-1", "lambdaFunctionName": "test-function", "lambdaFunctionVersion": "$LATEST", "event": "test-event-1"}
+            ),
+            json.dumps(
+                {"requestId": "req-2", "sessionId": "test-session-id", "connectionId": "conn-1", "lambdaFunctionName": "test-function", "lambdaFunctionVersion": "$LATEST", "event": "test-event-2"}
+            ),
+        ]
         mock_ws.recv.side_effect = messages + [websockets.exceptions.ConnectionClosed(None, None)]
 
-        # Mock message handler
+        # Mock message handler that returns DebuggerResponse
         handler = Mock()
+        handler.side_effect = [DebuggerResponse(requestId="req-1", statusCode=200, response="response-1"), DebuggerResponse(requestId="req-2", statusCode=200, response="response-2")]
 
         # Create client and run loop
         client = WebSocketClient("wss://example.com/ws", "test-session-id")
 
-        # Patch signal handling and websocket connection
+        # Patch signal handling, websocket connection, and thread pool executor
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.add_signal_handler = Mock()
             mock_loop.return_value.remove_signal_handler = Mock()
+
+            # Mock the run_in_executor to run synchronously
+            async def mock_executor(executor, func, *args):
+                return func(*args)
+
+            mock_loop.return_value.run_in_executor = mock_executor
 
             with patch("plldb.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
                 mock_connect.return_value = mock_ws
 
                 await client.run_loop(handler)
 
-        # Verify handler was called
+        # Verify handler was called with correct messages
         assert handler.call_count == 2
-        handler.assert_any_call({"type": "message1"})
-        handler.assert_any_call({"type": "message2"})
+
+        # Verify that responses were sent back
+        assert mock_ws.send.call_count == 2
+        sent_messages = [json.loads(call.args[0]) for call in mock_ws.send.call_args_list]
+        assert sent_messages[0]["requestId"] == "req-1"
+        assert sent_messages[0]["statusCode"] == 200
+        assert sent_messages[0]["response"] == "response-1"
+        assert sent_messages[1]["requestId"] == "req-2"
+        assert sent_messages[1]["statusCode"] == 200
+        assert sent_messages[1]["response"] == "response-2"
 
     @pytest.mark.asyncio
     async def test_run_loop_keyboard_interrupt(self):
@@ -141,3 +164,49 @@ class TestWebSocketClient:
         client.stop()
 
         assert client._running is False
+
+    @pytest.mark.asyncio
+    async def test_run_loop_with_error_handler(self):
+        """Test message loop with handler that raises exception."""
+        # Mock WebSocket
+        mock_ws = AsyncMock()
+        messages = [
+            json.dumps(
+                {"requestId": "req-1", "sessionId": "test-session-id", "connectionId": "conn-1", "lambdaFunctionName": "test-function", "lambdaFunctionVersion": "$LATEST", "event": "test-event-1"}
+            )
+        ]
+        mock_ws.recv.side_effect = messages + [websockets.exceptions.ConnectionClosed(None, None)]
+
+        # Mock message handler that raises exception
+        handler = Mock()
+        handler.side_effect = Exception("Handler error")
+
+        # Create client and run loop
+        client = WebSocketClient("wss://example.com/ws", "test-session-id")
+
+        # Patch signal handling, websocket connection, and thread pool executor
+        with patch("asyncio.get_event_loop") as mock_loop:
+            mock_loop.return_value.add_signal_handler = Mock()
+            mock_loop.return_value.remove_signal_handler = Mock()
+
+            # Mock the run_in_executor to run synchronously
+            async def mock_executor(executor, func, *args):
+                return func(*args)
+
+            mock_loop.return_value.run_in_executor = mock_executor
+
+            with patch("plldb.websocket_client.websockets.connect", new_callable=AsyncMock) as mock_connect:
+                mock_connect.return_value = mock_ws
+
+                await client.run_loop(handler)
+
+        # Verify handler was called
+        assert handler.call_count == 1
+
+        # Verify that error response was sent back
+        assert mock_ws.send.call_count == 1
+        sent_message = json.loads(mock_ws.send.call_args[0][0])
+        assert sent_message["requestId"] == "req-1"
+        assert sent_message["statusCode"] == 500
+        assert sent_message["response"] == ""
+        assert sent_message["errorMessage"] == "Handler error"

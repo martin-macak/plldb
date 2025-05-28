@@ -8,6 +8,6 @@ class Debugger:
     def handle_message(self, message: Dict):
         pass
 
-    
+
 class InvalidMessageError(Exception):
     pass

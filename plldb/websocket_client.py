@@ -3,12 +3,14 @@ import json
 import logging
 import signal
 import sys
-from typing import Any, Callable, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable, Dict, Optional, Union
 from urllib.parse import urlparse, urlunparse
 
 import websockets
 
 from plldb.debugger import InvalidMessageError
+from plldb.protocol import DebuggerRequest, DebuggerResponse
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,7 @@ class WebSocketClient:
         self.session_id = session_id
         self._running = False
         self._websocket: Optional[Any] = None  # WebSocket connection
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
     async def connect(self) -> None:
         """Connect to the WebSocket API."""
@@ -71,7 +74,7 @@ class WebSocketClient:
         raw_message = await self._websocket.recv()
         return json.loads(raw_message)
 
-    async def run_loop(self, message_handler: Optional[Callable[[Dict[str, Any]], None]] = None) -> None:
+    async def run_loop(self, message_handler: Optional[Callable[[Dict[str, Any]], Union[DebuggerResponse, None]]] = None) -> None:
         """Run the main message loop.
 
         Args:
@@ -98,18 +101,32 @@ class WebSocketClient:
                     logger.info(f"Received message: {message}")
 
                     if message_handler:
-                        # TODO Run this in a separate thread
+                        # Deserialize message to DebuggerRequest
                         try:
-                            result = message_handler(message)
-                            # TODO
-                            # Send WebSocket message with result
+                            request = DebuggerRequest(**message)
+                        except (TypeError, KeyError) as e:
+                            logger.error(f"Failed to deserialize message: {e}")
+                            continue
+
+                        # Run handler in a separate thread
+                        future = loop.run_in_executor(self._executor, message_handler, message)
+
+                        try:
+                            result = await future
+
+                            if isinstance(result, DebuggerResponse):
+                                # Send WebSocket message with result
+                                await self.send_message({"requestId": result.requestId, "statusCode": result.statusCode, "response": result.response, "errorMessage": result.errorMessage})
                         except InvalidMessageError as e:
                             logger.error(f"Invalid message: {e}")
                             sys.exit(1)
                         except Exception as e:
                             logger.error(f"Error in message handler: {e}")
-                            # TODO
                             # Send WebSocket message with error status code
+                            error_response = DebuggerResponse(requestId=request.requestId, statusCode=500, response="", errorMessage=str(e))
+                            await self.send_message(
+                                {"requestId": error_response.requestId, "statusCode": error_response.statusCode, "response": error_response.response, "errorMessage": error_response.errorMessage}
+                            )
                             continue
 
                 except asyncio.TimeoutError:
@@ -128,6 +145,7 @@ class WebSocketClient:
                 loop.remove_signal_handler(sig)
 
             await self.disconnect()
+            self._executor.shutdown(wait=True)
 
     def stop(self) -> None:
         """Stop the message loop."""
