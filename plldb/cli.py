@@ -4,6 +4,7 @@ import logging
 import boto3
 import click
 
+from plldb.debugger import Debugger
 from plldb.setup import BootstrapManager
 from plldb.rest_client import RestApiClient
 from plldb.stack_discovery import StackDiscovery
@@ -75,7 +76,8 @@ def attach(ctx, stack_name: str):
         ws_client = WebSocketClient(endpoints["websocket_url"], session_id)
 
         # Run the async event loop
-        asyncio.run(ws_client.run_loop())
+        debugger = Debugger()
+        asyncio.run(ws_client.run_loop(debugger.handle_message))
 
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)

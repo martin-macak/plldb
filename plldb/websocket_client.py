@@ -2,10 +2,13 @@ import asyncio
 import json
 import logging
 import signal
+import sys
 from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse, urlunparse
 
 import websockets
+
+from plldb.debugger import InvalidMessageError
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +98,19 @@ class WebSocketClient:
                     logger.info(f"Received message: {message}")
 
                     if message_handler:
-                        message_handler(message)
+                        # TODO Run this in a separate thread
+                        try:
+                            result = message_handler(message)
+                            # TODO
+                            # Send WebSocket message with result
+                        except InvalidMessageError as e:
+                            logger.error(f"Invalid message: {e}")
+                            sys.exit(1)
+                        except Exception as e:
+                            logger.error(f"Error in message handler: {e}")
+                            # TODO
+                            # Send WebSocket message with error status code
+                            continue
 
                 except asyncio.TimeoutError:
                     # Timeout is normal, just continue the loop
