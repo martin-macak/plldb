@@ -663,3 +663,192 @@ def error_handler(event, context):
         env3 = {"TEST_ENV_VAR": "third_value"}
         result3 = executor.invoke_lambda_function("TestLambda", {}, environment=env3)
         assert "Env: third_value" in result3["body"]
+
+class TestExecutorSimulator:
+    def test_with_real_filesystem(self, tmp_path):
+        """
+        Create tempdir
+        Similate virtual environment .venv
+        Put example site package there, for example 
+          .venv/lib/python3.13/site-packages/foo
+          .venv/lib/python3.13/site-packages/foo/__init__.py
+          .venv/lib/python3.13/site-packages/foo/bar.py
+        Create baz function in the foo.bar module
+
+        Create a lambda function in the tempdir
+        Put a lambda function handler there, for example
+            return foo.bar.baz()
+
+        Create a CloudFormation template with a lambda function that uses the foo.bar.baz function
+        Run the test for Executor in that dir
+        """
+        # Create virtual environment structure
+        venv_path = tmp_path / ".venv"
+        
+        # Determine Python version for site-packages path
+        python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+        
+        if sys.platform == "win32":
+            site_packages = venv_path / "Lib" / "site-packages"
+        else:
+            site_packages = venv_path / "lib" / python_version / "site-packages"
+        
+        site_packages.mkdir(parents=True)
+        
+        # Create custom package 'foo' in site-packages
+        foo_package = site_packages / "foo"
+        foo_package.mkdir()
+        
+        # Create __init__.py for foo package
+        (foo_package / "__init__.py").write_text('"""Foo package for testing."""\n')
+        
+        # Create bar.py module with baz function
+        bar_module = foo_package / "bar.py"
+        bar_module.write_text("""
+def baz():
+    \"\"\"Test function that returns a specific value.\"\"\"
+    return {"message": "Hello from foo.bar.baz!", "status": "success"}
+""")
+        
+        # Create lambda code directory
+        lambda_code_dir = tmp_path / "lambda_code"
+        lambda_code_dir.mkdir()
+        
+        # Create Lambda handler that uses foo.bar.baz
+        lambda_handler = lambda_code_dir / "handler.py"
+        lambda_handler.write_text("""
+import json
+import foo.bar
+
+def lambda_handler(event, context):
+    \"\"\"Lambda handler that uses the foo.bar.baz function.\"\"\"
+    # Call the function from our custom package
+    result = foo.bar.baz()
+    
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "event": event,
+            "result": result,
+            "context": {
+                "function_name": context.function_name,
+                "request_id": context.aws_request_id
+            }
+        })
+    }
+""")
+        
+        # Create CloudFormation template
+        cfn_template = tmp_path / "template.yaml"
+        cfn_template.write_text("""
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  TestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_code
+      Handler: handler.lambda_handler
+      Runtime: python3.9
+      MemorySize: 128
+      Timeout: 30
+""")
+        
+        # Create Executor instance
+        executor = Executor(
+            working_dir=tmp_path,
+            cfn_template_path=cfn_template
+        )
+        
+        # Test invoke_lambda_function with custom package
+        event = {"testKey": "testValue", "action": "test"}
+        
+        # This should:
+        # 1. Load site-packages from .venv
+        # 2. Import the lambda handler
+        # 3. Execute it with access to foo.bar.baz
+        result = executor.invoke_lambda_function("TestFunction", event)
+        
+        # Verify the result
+        assert result["statusCode"] == 200
+        
+        # Parse the body
+        import json
+        body = json.loads(result["body"])
+        
+        # Check that the event was passed correctly
+        assert body["event"] == event
+        
+        # Check that foo.bar.baz was called successfully
+        assert body["result"]["message"] == "Hello from foo.bar.baz!"
+        assert body["result"]["status"] == "success"
+        
+        # Check context was set
+        assert body["context"]["function_name"] == "TestFunction"
+        assert "request_id" in body["context"]
+        
+        # Test with environment variables
+        env_vars = {
+            "CUSTOM_ENV": "test_value",
+            "LOG_LEVEL": "DEBUG"
+        }
+        
+        # Create another lambda that uses environment variables
+        env_handler = lambda_code_dir / "env_handler.py"
+        env_handler.write_text("""
+import os
+import json
+import foo.bar
+
+def env_lambda_handler(event, context):
+    \"\"\"Lambda handler that uses environment variables and foo.bar.\"\"\"
+    result = foo.bar.baz()
+    
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "foo_result": result,
+            "env": {
+                "CUSTOM_ENV": os.environ.get("CUSTOM_ENV", "not_set"),
+                "LOG_LEVEL": os.environ.get("LOG_LEVEL", "not_set")
+            }
+        })
+    }
+""")
+        
+        # Update template to include the new function
+        updated_template = cfn_template.read_text() + """
+  EnvTestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_code
+      Handler: env_handler.env_lambda_handler
+      Runtime: python3.9
+"""
+        cfn_template.write_text(updated_template)
+        
+        # Test with environment variables
+        result = executor.invoke_lambda_function(
+            "EnvTestFunction", 
+            {"test": "env"}, 
+            environment=env_vars
+        )
+        
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        
+        # Verify environment variables were set
+        assert body["env"]["CUSTOM_ENV"] == "test_value"
+        assert body["env"]["LOG_LEVEL"] == "DEBUG"
+        
+        # Verify foo.bar.baz still works
+        assert body["foo_result"]["message"] == "Hello from foo.bar.baz!"
+        
+        # Test that the module is cleaned up after execution
+        assert "handler" not in sys.modules
+        assert "env_handler" not in sys.modules
+        
+        # Test error handling when function doesn't exist
+        with pytest.raises(LambdaFunctionNotFoundError):
+            executor.invoke_lambda_function("NonExistentFunction", {})
