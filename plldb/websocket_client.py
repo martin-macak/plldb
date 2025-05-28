@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import json
 import logging
 import signal
@@ -28,7 +29,16 @@ class WebSocketClient:
         # Parse URL and add sessionId query parameter
         parsed = urlparse(websocket_url)
         query = f"sessionId={session_id}"
-        self.url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, parsed.fragment))
+        self.url = urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                query,
+                parsed.fragment,
+            )
+        )
         self.session_id = session_id
         self._running = False
         self._websocket: Optional[Any] = None  # WebSocket connection
@@ -74,7 +84,10 @@ class WebSocketClient:
         raw_message = await self._websocket.recv()
         return json.loads(raw_message)
 
-    async def run_loop(self, message_handler: Optional[Callable[[Dict[str, Any]], Union[DebuggerResponse, None]]] = None) -> None:
+    async def run_loop(
+        self,
+        message_handler: Optional[Callable[[Dict[str, Any]], Union[DebuggerResponse, None]]] = None,
+    ) -> None:
         """Run the main message loop.
 
         Args:
@@ -116,17 +129,20 @@ class WebSocketClient:
 
                             if isinstance(result, DebuggerResponse):
                                 # Send WebSocket message with result
-                                await self.send_message({"requestId": result.requestId, "statusCode": result.statusCode, "response": result.response, "errorMessage": result.errorMessage})
+                                await self.send_message(dataclasses.asdict(result))
                         except InvalidMessageError as e:
                             logger.error(f"Invalid message: {e}")
                             sys.exit(1)
                         except Exception as e:
                             logger.error(f"Error in message handler: {e}")
                             # Send WebSocket message with error status code
-                            error_response = DebuggerResponse(requestId=request.requestId, statusCode=500, response="", errorMessage=str(e))
-                            await self.send_message(
-                                {"requestId": error_response.requestId, "statusCode": error_response.statusCode, "response": error_response.response, "errorMessage": error_response.errorMessage}
+                            error_response = DebuggerResponse(
+                                requestId=request.requestId,
+                                statusCode=500,
+                                response="",
+                                errorMessage=str(e),
                             )
+                            await self.send_message(dataclasses.asdict(error_response))
                             continue
 
                 except asyncio.TimeoutError:
