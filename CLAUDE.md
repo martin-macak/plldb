@@ -76,3 +76,36 @@ Tests use the `mock_aws_session` fixture from `tests/conftest.py` which:
 This ensures all AWS operations during testing are safely mocked and will never touch real AWS resources.
 
 - Use `monkeypatch` fixture instead of `unittest.mock.patch`.
+
+## Core Components
+
+### Infrastructure Management (`plldb.setup.BootstrapManager`)
+Handles the complete infrastructure setup:
+- Creates S3 bucket for Lambda deployment artifacts
+- Packages and uploads Lambda functions from `cloudformation/lambda_functions/`
+- Packages Lambda layer with custom runtime wrapper
+- Deploys CloudFormation stack with all resources
+
+### Session Management
+- **Stack Discovery** (`plldb.stack_discovery`) - Discovers WebSocket and REST API endpoints from deployed stacks
+- **REST Client** (`plldb.rest_client`) - Creates debug sessions with SigV4 authentication
+- **WebSocket Client** (`plldb.websocket_client`) - Maintains debugging connection
+
+### Lambda Layer Runtime
+The custom layer (`cloudformation/layer/`) intercepts Lambda invocations:
+- `bootstrap` shell script sets up AWS_LAMBDA_EXEC_WRAPPER
+- `lambda_runtime.py` checks for debug environment variables
+- Routes invocations through WebSocket when debugging is enabled
+
+## CLI Commands
+
+The main entry point is `plldb` which provides:
+- `plldb bootstrap` - Set up debugging infrastructure
+- `plldb bootstrap destroy` - Tear down debugging infrastructure  
+- `plldb attach` - Attach debugger to a CloudFormation stack
+
+## Important Files
+
+- `cloudformation/template.yaml` - Complete infrastructure definition
+- `pyproject.toml` - Project configuration with tool settings
+- `tests/conftest.py` - Core testing fixtures including `mock_aws_session`
