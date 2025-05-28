@@ -1,0 +1,28 @@
+openapi: 3.0.0
+info:
+  title: PLLDB Debugger WebSocket API
+  version: 1.0.0
+  description: API for PLLDB Lambda Debugger WebSocket communication
+
+paths: {}
+
+components:
+  schemas:
+    DebuggerRequest:
+      type: object
+      required:
+        - requestId
+        - statusCode
+        - response
+      properties:
+        requestId:
+          type: string
+          description: The request ID
+        statusCode:
+          type: integer
+          description: The status code
+        response:
+          type: string
+          description: The response serialized as string
+        errorMessage:
+          type: string

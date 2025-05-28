@@ -1,0 +1,43 @@
+openapi: 3.0.0
+info:
+  title: PLLDB Debugger WebSocket API
+  version: 1.0.0
+  description: API for PLLDB Lambda Debugger WebSocket communication
+
+paths: {}
+
+components:
+  schemas:
+    DebuggerRequest:
+      type: object
+      required:
+        - requestId
+        - sessionId
+        - connectionId
+        - lambdaFunctionName
+        - lambdaFunctionVersion
+        - event
+      properties:
+        requestId:
+          type: string
+          description: The request ID
+        sessionId:
+          type: string
+          description: The session ID
+        connectionId:
+          type: string
+          description: The connection ID
+        environmentVariables:
+          type: object
+          description: The environment variables
+          additionalProperties:
+            type: string
+        lambdaFunctionName:
+          type: string
+          description: The name of the Lambda function
+        lambdaFunctionVersion:
+          type: string
+          description: The version of the Lambda function
+        event:
+          type: string
+          description: The event
