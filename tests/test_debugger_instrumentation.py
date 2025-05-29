@@ -29,7 +29,10 @@ def mock_aws_services():
         # Mock Lambda client
         mock_lambda_client = MagicMock()
         # Return different configs for each function
-        mock_lambda_client.get_function_configuration.side_effect = [{"Environment": {"Variables": {}}, "Layers": []}, {"Environment": {"Variables": {}}, "Layers": []}]
+        mock_lambda_client.get_function_configuration.side_effect = [
+            {"Environment": {"Variables": {}}, "Layers": [], "Role": "arn:aws:iam::123456789012:role/test-function-1-role"},
+            {"Environment": {"Variables": {}}, "Layers": [], "Role": "arn:aws:iam::123456789012:role/test-function-2-role"},
+        ]
         # Mock list_layer_versions for get_latest_layer_version
         mock_lambda_client.list_layer_versions.return_value = {
             "LayerVersions": [
@@ -39,18 +42,30 @@ def mock_aws_services():
             ]
         }
 
+        # Mock IAM client
+        mock_iam_client = MagicMock()
+        mock_iam_client.exceptions.NoSuchEntityException = Exception
+
+        # Mock STS client
+        mock_sts_client = MagicMock()
+        mock_sts_client.get_caller_identity.return_value = {"Account": "123456789012"}
+
         # Configure boto3.client to return appropriate mocks
         def get_client(service):
             if service == "cloudformation":
                 return mock_cf_client
             elif service == "lambda":
                 return mock_lambda_client
+            elif service == "iam":
+                return mock_iam_client
+            elif service == "sts":
+                return mock_sts_client
             else:
                 raise ValueError(f"Unexpected service: {service}")
 
         mock_boto3.client.side_effect = get_client
 
-        yield {"boto3": mock_boto3, "cf_client": mock_cf_client, "lambda_client": mock_lambda_client}
+        yield {"boto3": mock_boto3, "cf_client": mock_cf_client, "lambda_client": mock_lambda_client, "iam_client": mock_iam_client, "sts_client": mock_sts_client}
 
 
 class TestGetLatestLayerVersion:
@@ -116,6 +131,23 @@ class TestInstrumentLambdaFunctions:
             assert kwargs["Environment"]["Variables"]["AWS_LAMBDA_EXEC_WRAPPER"] == "/opt/bin/bootstrap"
             assert "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:3" in kwargs["Layers"]
 
+        # Verify IAM policy was added - should be called twice (for two functions)
+        assert mock_aws_services["iam_client"].put_role_policy.call_count == 2
+
+        # Check the IAM policy calls
+        iam_calls = mock_aws_services["iam_client"].put_role_policy.call_args_list
+        for i, call in enumerate(iam_calls):
+            args, kwargs = call
+            expected_role = f"test-function-{i + 1}-role"
+            assert kwargs["RoleName"] == expected_role
+            assert kwargs["PolicyName"] == "PLLDBAssumeRolePolicy"
+            policy_doc = json.loads(kwargs["PolicyDocument"])
+            assert policy_doc["Version"] == "2012-10-17"
+            assert len(policy_doc["Statement"]) == 1
+            assert policy_doc["Statement"][0]["Effect"] == "Allow"
+            assert policy_doc["Statement"][0]["Action"] == "sts:AssumeRole"
+            assert policy_doc["Statement"][0]["Resource"] == "arn:aws:iam::123456789012:role/PLLDBDebuggerRole"
+
     def test_instrument_lambda_functions_idempotent(self, mock_aws_services):
         """Test that instrumentation is idempotent."""
         # Set up already instrumented function
@@ -158,10 +190,12 @@ class TestUninstrumentLambdaFunctions:
             {
                 "Environment": {"Variables": {"DEBUGGER_SESSION_ID": "session-123", "DEBUGGER_CONNECTION_ID": "connection-456", "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap", "OTHER_VAR": "value"}},
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:2"}, {"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}],
+                "Role": "arn:aws:iam::123456789012:role/test-function-1-role",
             },
             {
                 "Environment": {"Variables": {"DEBUGGER_SESSION_ID": "session-123", "DEBUGGER_CONNECTION_ID": "connection-456", "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap", "OTHER_VAR": "value"}},
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:2"}, {"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}],
+                "Role": "arn:aws:iam::123456789012:role/test-function-2-role",
             },
         ]
 
@@ -183,6 +217,17 @@ class TestUninstrumentLambdaFunctions:
             # Should remove only the debug layer
             assert len(kwargs["Layers"]) == 1
             assert kwargs["Layers"][0] == "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"
+
+        # Verify IAM policy was removed - should be called twice (for two functions)
+        assert mock_aws_services["iam_client"].delete_role_policy.call_count == 2
+
+        # Check the IAM policy deletion calls
+        iam_calls = mock_aws_services["iam_client"].delete_role_policy.call_args_list
+        for i, call in enumerate(iam_calls):
+            args, kwargs = call
+            expected_role = f"test-function-{i + 1}-role"
+            assert kwargs["RoleName"] == expected_role
+            assert kwargs["PolicyName"] == "PLLDBAssumeRolePolicy"
 
     def test_uninstrument_lambda_functions_idempotent(self, mock_aws_services):
         """Test that uninstrumentation is idempotent."""

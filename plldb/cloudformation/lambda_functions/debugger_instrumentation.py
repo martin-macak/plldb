@@ -56,6 +56,7 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
     """Instrument all Lambda functions in the stack with debug configuration."""
     cloudformation = boto3.client("cloudformation")
     lambda_client = boto3.client("lambda")
+    iam_client = boto3.client("iam")
 
     # Send info message that instrumentation has begun
     send_debugger_info(connection_id, session_id, "INFO", f"Starting instrumentation for stack: {stack_name}")
@@ -112,6 +113,22 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
                     Layers=layer_arns,
                 )
 
+                # Get the function's execution role
+                function_role_arn = current_config.get("Role")
+                if function_role_arn:
+                    role_name = function_role_arn.split("/")[-1]
+
+                    # Create inline policy to allow assuming PLLDBDebuggerRole
+                    account_id = boto3.client("sts").get_caller_identity()["Account"]
+                    policy_document = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "sts:AssumeRole", "Resource": f"arn:aws:iam::{account_id}:role/PLLDBDebuggerRole"}]}
+
+                    try:
+                        iam_client.put_role_policy(RoleName=role_name, PolicyName="PLLDBAssumeRolePolicy", PolicyDocument=json.dumps(policy_document))
+                        logger.info(f"Added assume role policy to {role_name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to add assume role policy to {role_name}: {e}")
+                        send_debugger_info(connection_id, session_id, "WARNING", f"Could not add assume role policy to {role_name}: {e}")
+
                 logger.info(f"Successfully instrumented: {function_name}")
                 send_debugger_info(connection_id, session_id, "INFO", f"Instrumented Lambda function: {function_name}")
 
@@ -134,6 +151,7 @@ def uninstrument_lambda_functions(stack_name: str, session_id: Optional[str] = N
     """Remove debug instrumentation from all Lambda functions in the stack."""
     cloudformation = boto3.client("cloudformation")
     lambda_client = boto3.client("lambda")
+    iam_client = boto3.client("iam")
 
     # Send info message that de-instrumentation has begun (if connection details provided)
     if connection_id and session_id:
@@ -183,6 +201,21 @@ def uninstrument_lambda_functions(stack_name: str, session_id: Optional[str] = N
                     update_params["Layers"] = []
 
                 lambda_client.update_function_configuration(**update_params)
+
+                # Remove the inline policy that allows assuming PLLDBDebuggerRole
+                function_role_arn = current_config.get("Role")
+                if function_role_arn:
+                    role_name = function_role_arn.split("/")[-1]
+
+                    try:
+                        iam_client.delete_role_policy(RoleName=role_name, PolicyName="PLLDBAssumeRolePolicy")
+                        logger.info(f"Removed assume role policy from {role_name}")
+                    except iam_client.exceptions.NoSuchEntityException:
+                        logger.debug(f"Policy PLLDBAssumeRolePolicy not found on role {role_name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to remove assume role policy from {role_name}: {e}")
+                        if connection_id and session_id:
+                            send_debugger_info(connection_id, session_id, "WARNING", f"Could not remove assume role policy from {role_name}: {e}")
 
                 logger.info(f"Successfully uninstrumented: {function_name}")
                 if connection_id and session_id:
