@@ -167,7 +167,7 @@ class TestCloudFormationTemplate:
 
         assert api_stmt is not None, "PLLDBServiceRole should have execute-api permissions"
         assert "execute-api:ManageConnections" in api_stmt["Action"]
-        
+
         # Check that it references the WebSocket API
         resources_in_policy = api_stmt["Resource"]
         assert any("PLLDBWebSocketAPI" in str(r) for r in resources_in_policy)

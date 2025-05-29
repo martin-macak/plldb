@@ -59,33 +59,33 @@ class TestGetLatestLayerVersion:
     def test_get_latest_layer_version_success(self, mock_aws_services):
         """Test successful retrieval of latest layer version."""
         result = get_latest_layer_version(mock_aws_services["lambda_client"])
-        
+
         assert result == "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:3"
         mock_aws_services["lambda_client"].list_layer_versions.assert_called_once_with(LayerName="PLLDBDebuggerRuntime")
-    
+
     def test_get_latest_layer_version_no_versions(self, mock_aws_services):
         """Test when no layer versions are found."""
         mock_aws_services["lambda_client"].list_layer_versions.return_value = {"LayerVersions": []}
-        
+
         result = get_latest_layer_version(mock_aws_services["lambda_client"])
-        
+
         assert result is None
-    
+
     def test_get_latest_layer_version_layer_not_found(self, mock_aws_services):
         """Test when layer does not exist."""
         mock_aws_services["lambda_client"].exceptions.ResourceNotFoundException = Exception
         mock_aws_services["lambda_client"].list_layer_versions.side_effect = Exception("Layer not found")
-        
+
         result = get_latest_layer_version(mock_aws_services["lambda_client"])
-        
+
         assert result is None
-    
+
     def test_get_latest_layer_version_general_error(self, mock_aws_services):
         """Test when a general error occurs."""
         mock_aws_services["lambda_client"].list_layer_versions.side_effect = Exception("General error")
-        
+
         result = get_latest_layer_version(mock_aws_services["lambda_client"])
-        
+
         assert result is None
 
 
@@ -98,7 +98,7 @@ class TestInstrumentLambdaFunctions:
 
         # Verify layer lookup
         mock_aws_services["lambda_client"].list_layer_versions.assert_called_once_with(LayerName="PLLDBDebuggerRuntime")
-        
+
         # Verify CloudFormation calls
         mock_aws_services["cf_client"].list_stack_resources.assert_called_once_with(StackName="test-stack")
 
@@ -134,14 +134,14 @@ class TestInstrumentLambdaFunctions:
 
         # Should not update already instrumented functions
         mock_aws_services["lambda_client"].update_function_configuration.assert_not_called()
-    
+
     def test_instrument_lambda_functions_layer_not_found(self, mock_aws_services):
         """Test instrumentation when layer is not found."""
         # Mock layer not found
         mock_aws_services["lambda_client"].list_layer_versions.return_value = {"LayerVersions": []}
-        
+
         instrument_lambda_functions("test-stack", "session-123", "connection-456")
-        
+
         # Should not attempt to update any functions
         mock_aws_services["lambda_client"].update_function_configuration.assert_not_called()
         # Should not even list stack resources since we bail out early

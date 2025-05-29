@@ -35,15 +35,15 @@ def get_latest_layer_version(lambda_client: Any, layer_name: str = "PLLDBDebugge
     try:
         # List all versions of the layer
         versions = lambda_client.list_layer_versions(LayerName=layer_name)
-        
+
         if not versions.get("LayerVersions"):
             logger.error(f"No versions found for layer: {layer_name}")
             return None
-        
+
         # Get the latest version (first in the list as it's ordered by version descending)
         latest_version = versions["LayerVersions"][0]
         return latest_version["LayerVersionArn"]
-    
+
     except Exception as e:
         if "ResourceNotFoundException" in str(type(e)):
             logger.error(f"Layer not found: {layer_name}")
@@ -62,13 +62,13 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
 
     # Find the latest available PLLDBDebuggerRuntime layer version
     layer_arn = get_latest_layer_version(lambda_client)
-    
+
     if not layer_arn:
         error_msg = "PLLDBDebuggerRuntime layer not found or no versions available"
         logger.error(error_msg)
         send_debugger_info(connection_id, session_id, "ERROR", f"Instrumentation failed: {error_msg}")
         return
-    
+
     logger.info(f"Using layer ARN: {layer_arn}")
     send_debugger_info(connection_id, session_id, "INFO", f"Using debugger layer: {layer_arn}")
 
