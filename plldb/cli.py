@@ -61,9 +61,9 @@ def attach(ctx, stack_name: str):
     try:
         # Discover stack endpoints
         discovery = StackDiscovery(session)
-        endpoints = discovery.get_api_endpoints(stack_name)
+        endpoints = discovery.get_api_endpoints("plldb")
 
-        click.echo(f"Discovered endpoints for stack '{stack_name}'")
+        click.echo(f"Discovered endpoints for stack plldb")
 
         # Create debug session via REST API
         rest_client = RestApiClient(session)

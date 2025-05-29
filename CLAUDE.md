@@ -12,7 +12,8 @@ make init    # Install dependencies using uv
 ### Testing
 ```bash
 make test    # Run all tests with pytest
-pytest tests/test_example.py::TestAWSResources::test_dynamodb_table -v    # Run a single test
+uv run pytest tests/test_example.py::TestAWSResources::test_dynamodb_table -v    # Run a single test
+uv run pytest tests/    # Run all tests
 ```
 
 ### Code Quality

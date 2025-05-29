@@ -117,12 +117,12 @@ def test_attach_command_success(mock_asyncio_run, mock_ws_client_class, mock_res
     result = runner.invoke(cli, ["attach", "--stack-name", "test-stack"], catch_exceptions=False)
 
     assert result.exit_code == 0
-    assert "Discovered endpoints for stack 'test-stack'" in result.output
+    assert "Discovered endpoints for stack plldb" in result.output
     assert "Created debug session: test-session-id" in result.output
     assert "Connecting to WebSocket API..." in result.output
 
     # Verify calls
-    mock_discovery.get_api_endpoints.assert_called_once_with("test-stack")
+    mock_discovery.get_api_endpoints.assert_called_once_with("plldb")
     mock_rest_client.create_session.assert_called_once_with("https://test.execute-api.us-east-1.amazonaws.com/prod", "test-stack")
     mock_ws_client_class.assert_called_once_with("wss://test.execute-api.us-east-1.amazonaws.com/prod", "test-session-id")
     mock_asyncio_run.assert_called_once()
@@ -140,11 +140,11 @@ def test_attach_command_stack_not_found(mock_discovery_class, runner, mock_aws_s
 
     # Mock stack discovery to raise error
     mock_discovery = Mock()
-    mock_discovery.get_api_endpoints.side_effect = ValueError("Stack 'test-stack' not found")
+    mock_discovery.get_api_endpoints.side_effect = ValueError("Stack 'plldb' not found")
     mock_discovery_class.return_value = mock_discovery
 
     # Run command
     result = runner.invoke(cli, ["attach", "--stack-name", "test-stack"])
 
     assert result.exit_code == 1
-    assert "Error: Stack 'test-stack' not found" in result.output
+    assert "Error: Stack 'plldb' not found" in result.output
