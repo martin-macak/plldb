@@ -30,6 +30,28 @@ def send_debugger_info(connection_id: str, session_id: str, log_level: str, mess
         logger.error(f"Failed to send debugger info: {e}")
 
 
+def get_latest_layer_version(lambda_client: Any, layer_name: str = "PLLDBDebuggerRuntime") -> Optional[str]:
+    """Find the latest version of the PLLDBDebuggerRuntime layer."""
+    try:
+        # List all versions of the layer
+        versions = lambda_client.list_layer_versions(LayerName=layer_name)
+        
+        if not versions.get("LayerVersions"):
+            logger.error(f"No versions found for layer: {layer_name}")
+            return None
+        
+        # Get the latest version (first in the list as it's ordered by version descending)
+        latest_version = versions["LayerVersions"][0]
+        return latest_version["LayerVersionArn"]
+    
+    except Exception as e:
+        if "ResourceNotFoundException" in str(type(e)):
+            logger.error(f"Layer not found: {layer_name}")
+        else:
+            logger.error(f"Error finding layer version: {e}")
+        return None
+
+
 def instrument_lambda_functions(stack_name: str, session_id: str, connection_id: str) -> None:
     """Instrument all Lambda functions in the stack with debug configuration."""
     cloudformation = boto3.client("cloudformation")
@@ -38,19 +60,17 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
     # Send info message that instrumentation has begun
     send_debugger_info(connection_id, session_id, "INFO", f"Starting instrumentation for stack: {stack_name}")
 
-    # Get the PLLDBDebuggerRuntime layer ARN from the current stack
-    current_stack = cloudformation.describe_stacks(StackName=os.environ.get("AWS_CLOUDFORMATION_STACK_NAME", "plldb-infrastructure"))["Stacks"][0]
-    layer_arn = None
-    for output in current_stack.get("Outputs", []):
-        if output["OutputKey"] == "DebuggerLayerArn":
-            layer_arn = output["OutputValue"]
-            break
-
+    # Find the latest available PLLDBDebuggerRuntime layer version
+    layer_arn = get_latest_layer_version(lambda_client)
+    
     if not layer_arn:
-        error_msg = "PLLDBDebuggerRuntime layer ARN not found in stack outputs"
+        error_msg = "PLLDBDebuggerRuntime layer not found or no versions available"
         logger.error(error_msg)
         send_debugger_info(connection_id, session_id, "ERROR", f"Instrumentation failed: {error_msg}")
         return
+    
+    logger.info(f"Using layer ARN: {layer_arn}")
+    send_debugger_info(connection_id, session_id, "INFO", f"Using debugger layer: {layer_arn}")
 
     # List all resources in the target stack
     try:
@@ -119,13 +139,8 @@ def uninstrument_lambda_functions(stack_name: str, session_id: Optional[str] = N
     if connection_id and session_id:
         send_debugger_info(connection_id, session_id, "INFO", f"Starting de-instrumentation for stack: {stack_name}")
 
-    # Get the PLLDBDebuggerRuntime layer ARN from the current stack
-    current_stack = cloudformation.describe_stacks(StackName=os.environ.get("AWS_CLOUDFORMATION_STACK_NAME", "plldb-infrastructure"))["Stacks"][0]
-    layer_arn = None
-    for output in current_stack.get("Outputs", []):
-        if output["OutputKey"] == "DebuggerLayerArn":
-            layer_arn = output["OutputValue"]
-            break
+    # Note: We don't need to find the specific layer version for uninstrumentation
+    # We'll remove any PLLDBDebuggerRuntime layer regardless of version
 
     # List all resources in the target stack
     try:
@@ -153,9 +168,9 @@ def uninstrument_lambda_functions(stack_name: str, session_id: Optional[str] = N
                 env_vars.pop("DEBUGGER_CONNECTION_ID", None)
                 env_vars.pop("AWS_LAMBDA_EXEC_WRAPPER", None)
 
-                # Remove our layer if present
+                # Remove any PLLDBDebuggerRuntime layer (regardless of version)
                 layers = current_config.get("Layers", [])
-                layer_arns = [layer["Arn"] for layer in layers if layer["Arn"] != layer_arn]
+                layer_arns = [layer["Arn"] for layer in layers if "PLLDBDebuggerRuntime" not in layer["Arn"]]
 
                 # Update function configuration
                 update_params = {"FunctionName": function_name, "Environment": {"Variables": env_vars} if env_vars else {}}

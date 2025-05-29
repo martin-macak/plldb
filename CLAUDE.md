@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Workflow Guidelines
+
+- When fixing github issues, always create new branch for it, called issue/gh-<issue-id>. 
+
 ## Commands
 
 ### Development Setup
