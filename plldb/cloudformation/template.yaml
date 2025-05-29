@@ -116,6 +116,11 @@ Resources:
                   - 'cloudformation:DescribeStackResources'
                   - 'cloudformation:DescribeStacks'
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'execute-api:ManageConnections'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${PLLDBWebSocketAPI}/*'
 
   PLLDBDebuggerRole:
     Type: AWS::IAM::Role
