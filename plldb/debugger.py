@@ -20,20 +20,20 @@ class Debugger:
     def _inspect_stack(self) -> None:
         """
         Inspect the CloudFormation stack and build lookup table.
-        Use describe_stack_resources to list stack resources.
+        Use list_stack_resources to list stack resources.
         Build associative map from PhysicalResourceId -> LogicalResourceId
         for resource type AWS::Lambda::Function.
         """
         # Create CloudFormation client
         cfn_client = self.session.client("cloudformation")
 
-        # Get all stack resources
-        paginator = cfn_client.get_paginator("describe_stack_resources")
+        # Get all stack resources using list_stack_resources which supports pagination
+        paginator = cfn_client.get_paginator("list_stack_resources")
         page_iterator = paginator.paginate(StackName=self.stack_name)
 
         # Build lookup table of PhysicalResourceId -> LogicalResourceId for Lambda functions
         for page in page_iterator:
-            for resource in page["StackResources"]:
+            for resource in page["StackResourceSummaries"]:
                 if resource["ResourceType"] == "AWS::Lambda::Function":
                     physical_id = resource.get("PhysicalResourceId")
                     logical_id = resource.get("LogicalResourceId")

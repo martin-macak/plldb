@@ -13,10 +13,10 @@ class TestDebugger:
         mock_paginator = MagicMock()
         mock_cfn_client.get_paginator.return_value = mock_paginator
 
-        # Mock describe_stack_resources response
+        # Mock list_stack_resources response
         mock_paginator.paginate.return_value = [
             {
-                "StackResources": [
+                "StackResourceSummaries": [
                     {"ResourceType": "AWS::Lambda::Function", "LogicalResourceId": "MyLambdaFunction", "PhysicalResourceId": "my-function-xyz123"},
                     {"ResourceType": "AWS::Lambda::Function", "LogicalResourceId": "AnotherLambda", "PhysicalResourceId": "another-function-abc456"},
                     {"ResourceType": "AWS::S3::Bucket", "LogicalResourceId": "NotALambda", "PhysicalResourceId": "my-bucket-123"},
@@ -29,7 +29,7 @@ class TestDebugger:
 
         # Verify CloudFormation client was called correctly
         mock_aws_session.client.assert_called_with("cloudformation")
-        mock_cfn_client.get_paginator.assert_called_once_with("describe_stack_resources")
+        mock_cfn_client.get_paginator.assert_called_once_with("list_stack_resources")
         mock_paginator.paginate.assert_called_once_with(StackName="test-stack")
 
         # Verify the lookup table was built correctly (PhysicalResourceId -> LogicalResourceId)
@@ -44,8 +44,8 @@ class TestDebugger:
         mock_paginator = MagicMock()
         mock_cfn_client.get_paginator.return_value = mock_paginator
 
-        # Mock describe_stack_resources response without Lambda functions
-        mock_paginator.paginate.return_value = [{"StackResources": [{"ResourceType": "AWS::S3::Bucket", "LogicalResourceId": "MyBucket", "PhysicalResourceId": "my-bucket-123"}]}]
+        # Mock list_stack_resources response without Lambda functions
+        mock_paginator.paginate.return_value = [{"StackResourceSummaries": [{"ResourceType": "AWS::S3::Bucket", "LogicalResourceId": "MyBucket", "PhysicalResourceId": "my-bucket-123"}]}]
 
         # Create debugger instance
         debugger = Debugger(session=mock_aws_session, stack_name="test-stack")
@@ -62,10 +62,10 @@ class TestDebugger:
         mock_paginator = MagicMock()
         mock_cfn_client.get_paginator.return_value = mock_paginator
 
-        # Mock describe_stack_resources response with Lambda without PhysicalResourceId
+        # Mock list_stack_resources response with Lambda without PhysicalResourceId
         mock_paginator.paginate.return_value = [
             {
-                "StackResources": [
+                "StackResourceSummaries": [
                     {
                         "ResourceType": "AWS::Lambda::Function",
                         "LogicalResourceId": "MyLambdaFunction",
@@ -90,10 +90,10 @@ class TestDebugger:
         mock_paginator = MagicMock()
         mock_cfn_client.get_paginator.return_value = mock_paginator
 
-        # Mock describe_stack_resources response with multiple pages
+        # Mock list_stack_resources response with multiple pages
         mock_paginator.paginate.return_value = [
-            {"StackResources": [{"ResourceType": "AWS::Lambda::Function", "LogicalResourceId": "Lambda1", "PhysicalResourceId": "function-1"}]},
-            {"StackResources": [{"ResourceType": "AWS::Lambda::Function", "LogicalResourceId": "Lambda2", "PhysicalResourceId": "function-2"}]},
+            {"StackResourceSummaries": [{"ResourceType": "AWS::Lambda::Function", "LogicalResourceId": "Lambda1", "PhysicalResourceId": "function-1"}]},
+            {"StackResourceSummaries": [{"ResourceType": "AWS::Lambda::Function", "LogicalResourceId": "Lambda2", "PhysicalResourceId": "function-2"}]},
         ]
 
         # Create debugger instance
