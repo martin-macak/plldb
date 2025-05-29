@@ -50,6 +50,7 @@ class Debugger:
 
         # Otherwise, it's a DebuggerRequest
         request = DebuggerRequest(**message)
+        print(f"Received request: {request}")
 
         # The lambdaFunctionName is the physical resource ID
         lambda_function_physical_id = request.lambdaFunctionName
