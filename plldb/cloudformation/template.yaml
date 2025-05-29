@@ -239,6 +239,22 @@ Resources:
           DYNAMODB_TABLE: !Ref PLLDBSessions
           LOG_LEVEL: INFO
 
+  PLLDBDebuggerInstrumentationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: plldb-debugger-instrumentation
+      Handler: debugger_instrumentation.lambda_handler
+      Runtime: python3.13
+      Code:
+        S3Bucket: !Sub '${S3Bucket}'
+        S3Key: !Sub '${S3KeyPrefix}/lambda_functions/debugger_instrumentation.zip'
+      Role: !GetAtt PLLDBServiceRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          AWS_CLOUDFORMATION_STACK_NAME: !Ref AWS::StackName
+
   PLLDBWebSocketAPI:
     Type: AWS::ApiGatewayV2::Api
     Properties:

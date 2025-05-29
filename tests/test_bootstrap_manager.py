@@ -71,16 +71,17 @@ class TestBootstrapManager:
 
         manager._upload_lambda_functions("test-bucket")
 
-        assert len(call_args) == 5
+        assert len(call_args) == 6
         assert "websocket_connect" in call_args
         assert "websocket_disconnect" in call_args
         assert "websocket_authorize" in call_args
         assert "websocket_default" in call_args
         assert "restapi" in call_args
+        assert "debugger_instrumentation" in call_args
 
         # Verify files were uploaded
         response = manager.s3_client.list_objects_v2(Bucket="test-bucket")
-        assert response["KeyCount"] == 5
+        assert response["KeyCount"] == 6
 
     def test_upload_template(self, mock_aws_session):
         manager = BootstrapManager(mock_aws_session)

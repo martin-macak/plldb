@@ -139,6 +139,7 @@ class TestCloudFormationTemplate:
             "PLLDBWebSocketAuthorizeFunction",
             "PLLDBWebSocketDefaultFunction",
             "PLLDBRestApiFunction",
+            "PLLDBDebuggerInstrumentationFunction",
             "PLLDBWebSocketAPI",
             "PLLDBAPI",
         ]

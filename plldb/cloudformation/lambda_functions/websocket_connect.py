@@ -1,70 +1,35 @@
 import json
 import boto3
 import logging
-import os
 from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
 
-def instrument_lambda_functions(stack_name: str, session_id: str, connection_id: str) -> None:
-    """Instrument all Lambda functions in the stack with debug configuration."""
-    cloudformation = boto3.client("cloudformation")
+def invoke_instrumentation_lambda(command: str, stack_name: str, session_id: str | None = None, connection_id: str | None = None) -> None:
+    """Invoke the instrumentation lambda function asynchronously."""
     lambda_client = boto3.client("lambda")
 
-    # Get the PLLDBDebuggerRuntime layer ARN from the current stack
-    current_stack = cloudformation.describe_stacks(StackName=os.environ.get("AWS_CLOUDFORMATION_STACK_NAME", "plldb-infrastructure"))["Stacks"][0]
-    layer_arn = None
-    for output in current_stack.get("Outputs", []):
-        if output["OutputKey"] == "DebuggerLayerArn":
-            layer_arn = output["OutputValue"]
-            break
+    # Prepare the payload
+    payload = {"command": command, "stackName": stack_name}
 
-    if not layer_arn:
-        logger.error("PLLDBDebuggerRuntime layer ARN not found in stack outputs")
-        return
+    if session_id:
+        payload["sessionId"] = session_id
+    if connection_id:
+        payload["connectionId"] = connection_id
 
-    # List all resources in the target stack
     try:
-        resources = cloudformation.list_stack_resources(StackName=stack_name)
+        # Invoke the instrumentation lambda asynchronously
+        response = lambda_client.invoke(
+            FunctionName="plldb-debugger-instrumentation",
+            InvocationType="Event",  # Asynchronous invocation
+            Payload=json.dumps(payload),
+        )
 
-        # Find all Lambda functions in the stack
-        lambda_functions = [r for r in resources["StackResourceSummaries"] if r["ResourceType"] == "AWS::Lambda::Function"]
-
-        for function in lambda_functions:
-            try:
-                function_name = function["PhysicalResourceId"]
-                logger.info(f"Instrumenting Lambda function: {function_name}")
-
-                # Get current function configuration
-                current_config = lambda_client.get_function_configuration(FunctionName=function_name)
-
-                # Prepare environment variables
-                env_vars = current_config.get("Environment", {}).get("Variables", {})
-                env_vars["DEBUGGER_SESSION_ID"] = session_id
-                env_vars["DEBUGGER_CONNECTION_ID"] = connection_id
-                env_vars["AWS_LAMBDA_EXEC_WRAPPER"] = "/opt/bin/bootstrap"
-
-                # Prepare layers - add our layer if not already present
-                layers = current_config.get("Layers", [])
-                layer_arns = [layer["Arn"] for layer in layers]
-                if layer_arn not in layer_arns:
-                    layer_arns.append(layer_arn)
-
-                # Update function configuration
-                lambda_client.update_function_configuration(
-                    FunctionName=function_name,
-                    Environment={"Variables": env_vars},
-                    Layers=layer_arns,
-                )
-
-                logger.info(f"Successfully instrumented: {function_name}")
-
-            except Exception as e:
-                logger.error(f"Failed to instrument function {function.get('LogicalResourceId')}: {e}")
+        logger.info(f"Instrumentation lambda invoked asynchronously: {command=} {stack_name=} StatusCode={response['StatusCode']}")
 
     except Exception as e:
-        logger.error(f"Failed to list stack resources for {stack_name}: {e}")
+        logger.error(f"Failed to invoke instrumentation lambda: {e}")
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa: ARG001
@@ -122,10 +87,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
             ExpressionAttributeValues={":status": "ACTIVE", ":conn_id": connection_id},
         )
 
-        # Instrument Lambda functions in the target stack
-        instrument_lambda_functions(stack_name, session_id, connection_id)
+        # Invoke instrumentation lambda asynchronously
+        invoke_instrumentation_lambda("instrument", stack_name, session_id, connection_id)
 
-        logger.info(f"Session connected and stack instrumented: {session_id=} {stack_name=}")
+        logger.info(f"Session connected and instrumentation initiated: {session_id=} {stack_name=}")
         result = {
             "statusCode": 200,
             "body": json.dumps({"message": "Connected", "sessionId": session_id}),

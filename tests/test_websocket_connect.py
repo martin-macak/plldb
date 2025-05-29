@@ -2,7 +2,7 @@
 
 import json
 from unittest.mock import Mock, patch
-from plldb.cloudformation.lambda_functions.websocket_connect import lambda_handler, instrument_lambda_functions
+from plldb.cloudformation.lambda_functions.websocket_connect import lambda_handler, invoke_instrumentation_lambda
 
 
 class TestWebSocketConnect:
@@ -10,8 +10,8 @@ class TestWebSocketConnect:
 
     @patch("boto3.client")
     @patch("boto3.resource")
-    def test_successful_connection_instruments_stack(self, mock_boto3_resource, mock_boto3_client):
-        """Test that successful connection updates session and instruments stack."""
+    def test_successful_connection_invokes_instrumentation_lambda(self, mock_boto3_resource, mock_boto3_client):
+        """Test that successful connection updates session and invokes instrumentation lambda."""
         # Mock DynamoDB
         mock_table = Mock()
         mock_table.get_item.return_value = {"Item": {"SessionId": "test-session-id", "StackName": "test-stack"}}
@@ -19,38 +19,11 @@ class TestWebSocketConnect:
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
 
-        # Mock CloudFormation and Lambda clients
-        mock_cf_client = Mock()
+        # Mock Lambda client
         mock_lambda_client = Mock()
+        mock_lambda_client.invoke.return_value = {"StatusCode": 202}
 
-        # Mock stack outputs to include layer ARN
-        mock_cf_client.describe_stacks.return_value = {
-            "Stacks": [{"Outputs": [{"OutputKey": "DebuggerLayerArn", "OutputValue": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:1"}]}]
-        }
-
-        # Mock stack resources
-        mock_cf_client.list_stack_resources.return_value = {
-            "StackResourceSummaries": [
-                {"ResourceType": "AWS::Lambda::Function", "PhysicalResourceId": "test-function-1", "LogicalResourceId": "Function1"},
-                {"ResourceType": "AWS::Lambda::Function", "PhysicalResourceId": "test-function-2", "LogicalResourceId": "Function2"},
-                {"ResourceType": "AWS::S3::Bucket", "PhysicalResourceId": "test-bucket", "LogicalResourceId": "Bucket1"},
-            ]
-        }
-
-        # Mock Lambda function configurations
-        mock_lambda_client.get_function_configuration.side_effect = [
-            {"Environment": {"Variables": {"EXISTING_VAR": "value"}}, "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}]},
-            {"Environment": {"Variables": {}}, "Layers": []},
-        ]
-
-        def mock_client(service_name):
-            if service_name == "cloudformation":
-                return mock_cf_client
-            elif service_name == "lambda":
-                return mock_lambda_client
-            return Mock()
-
-        mock_boto3_client.side_effect = mock_client
+        mock_boto3_client.return_value = mock_lambda_client
 
         event = {"requestContext": {"connectionId": "test-connection-id", "authorizer": {"sessionId": "test-session-id"}}}
 
@@ -65,22 +38,12 @@ class TestWebSocketConnect:
             ExpressionAttributeValues={":status": "ACTIVE", ":conn_id": "test-connection-id"},
         )
 
-        # Verify Lambda instrumentation
-        assert mock_lambda_client.update_function_configuration.call_count == 2
-
-        # Check first function update
-        first_call = mock_lambda_client.update_function_configuration.call_args_list[0]
-        assert first_call[1]["FunctionName"] == "test-function-1"
-        assert first_call[1]["Environment"]["Variables"]["DEBUGGER_SESSION_ID"] == "test-session-id"
-        assert first_call[1]["Environment"]["Variables"]["DEBUGGER_CONNECTION_ID"] == "test-connection-id"
-        assert first_call[1]["Environment"]["Variables"]["AWS_LAMBDA_EXEC_WRAPPER"] == "/opt/bin/bootstrap"
-        assert first_call[1]["Environment"]["Variables"]["EXISTING_VAR"] == "value"
-        assert len(first_call[1]["Layers"]) == 2  # Original layer + debug layer
-
-        # Check second function update
-        second_call = mock_lambda_client.update_function_configuration.call_args_list[1]
-        assert second_call[1]["FunctionName"] == "test-function-2"
-        assert len(second_call[1]["Layers"]) == 1  # Only debug layer
+        # Verify Lambda invocation
+        mock_lambda_client.invoke.assert_called_once_with(
+            FunctionName="plldb-debugger-instrumentation",
+            InvocationType="Event",
+            Payload=json.dumps({"command": "instrument", "stackName": "test-stack", "sessionId": "test-session-id", "connectionId": "test-connection-id"}),
+        )
 
         # Verify response
         assert result["statusCode"] == 200
@@ -109,7 +72,7 @@ class TestWebSocketConnect:
         """Test that missing authorizer context returns 403 Forbidden."""
         event = {
             "requestContext": {
-                "connectionId": "test-connection-id"
+                "connectionId": "test-connection-id",
                 # No authorizer key
             }
         }
@@ -122,14 +85,15 @@ class TestWebSocketConnect:
 
     @patch("boto3.resource")
     def test_session_not_found_returns_404(self, mock_boto3_resource):
-        """Test that non-existent session returns 404."""
+        """Test that non-existent session returns 404 Not Found."""
+        # Mock DynamoDB
         mock_table = Mock()
         mock_table.get_item.return_value = {}  # No Item key
         mock_dynamodb = Mock()
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
 
-        event = {"requestContext": {"connectionId": "test-connection-id", "authorizer": {"sessionId": "non-existent-session"}}}
+        event = {"requestContext": {"connectionId": "test-connection-id", "authorizer": {"sessionId": "nonexistent-session-id"}}}
 
         result = lambda_handler(event, None)
 
@@ -139,11 +103,10 @@ class TestWebSocketConnect:
 
     @patch("boto3.resource")
     def test_missing_stack_name_returns_400(self, mock_boto3_resource):
-        """Test that session without stack name returns 400."""
+        """Test that session without stack name returns 400 Bad Request."""
+        # Mock DynamoDB
         mock_table = Mock()
-        mock_table.get_item.return_value = {
-            "Item": {"SessionId": "test-session-id"}  # No StackName
-        }
+        mock_table.get_item.return_value = {"Item": {"SessionId": "test-session-id"}}  # No StackName
         mock_dynamodb = Mock()
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
@@ -158,8 +121,8 @@ class TestWebSocketConnect:
 
     @patch("boto3.client")
     @patch("boto3.resource")
-    def test_instrumentation_continues_on_function_error(self, mock_boto3_resource, mock_boto3_client):
-        """Test that instrumentation continues even if one function fails."""
+    def test_instrumentation_lambda_invocation_failure(self, mock_boto3_resource, mock_boto3_client):
+        """Test handling of instrumentation lambda invocation failure."""
         # Mock DynamoDB
         mock_table = Mock()
         mock_table.get_item.return_value = {"Item": {"SessionId": "test-session-id", "StackName": "test-stack"}}
@@ -167,157 +130,76 @@ class TestWebSocketConnect:
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
 
-        # Mock CloudFormation and Lambda clients
-        mock_cf_client = Mock()
+        # Mock Lambda client to raise exception
         mock_lambda_client = Mock()
-
-        # Mock stack outputs
-        mock_cf_client.describe_stacks.return_value = {
-            "Stacks": [{"Outputs": [{"OutputKey": "DebuggerLayerArn", "OutputValue": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:1"}]}]
-        }
-
-        # Mock stack resources
-        mock_cf_client.list_stack_resources.return_value = {
-            "StackResourceSummaries": [
-                {"ResourceType": "AWS::Lambda::Function", "PhysicalResourceId": "test-function-1", "LogicalResourceId": "Function1"},
-                {"ResourceType": "AWS::Lambda::Function", "PhysicalResourceId": "test-function-2", "LogicalResourceId": "Function2"},
-            ]
-        }
-
-        # First function fails, second succeeds
-        mock_lambda_client.get_function_configuration.side_effect = [Exception("Function not found"), {"Environment": {"Variables": {}}, "Layers": []}]
-
-        def mock_client(service_name):
-            if service_name == "cloudformation":
-                return mock_cf_client
-            elif service_name == "lambda":
-                return mock_lambda_client
-            return Mock()
-
-        mock_boto3_client.side_effect = mock_client
+        mock_lambda_client.invoke.side_effect = Exception("Lambda invocation failed")
+        mock_boto3_client.return_value = mock_lambda_client
 
         event = {"requestContext": {"connectionId": "test-connection-id", "authorizer": {"sessionId": "test-session-id"}}}
 
+        # Should not raise exception, just log it
         result = lambda_handler(event, None)
 
-        # Should still succeed overall
+        # Connection should still succeed even if instrumentation fails
         assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["message"] == "Connected"
 
-        # Second function should still be updated
-        assert mock_lambda_client.update_function_configuration.call_count == 1
-        assert mock_lambda_client.update_function_configuration.call_args[1]["FunctionName"] == "test-function-2"
-
-    @patch("boto3.client")
     @patch("boto3.resource")
-    def test_missing_layer_arn_continues_without_instrumentation(self, mock_boto3_resource, mock_boto3_client):
-        """Test that missing layer ARN logs error but continues."""
-        # Mock DynamoDB
-        mock_table = Mock()
-        mock_table.get_item.return_value = {"Item": {"SessionId": "test-session-id", "StackName": "test-stack"}}
-        mock_dynamodb = Mock()
-        mock_dynamodb.Table.return_value = mock_table
-        mock_boto3_resource.return_value = mock_dynamodb
-
-        # Mock CloudFormation client
-        mock_cf_client = Mock()
-
-        # Mock stack outputs without layer ARN
-        mock_cf_client.describe_stacks.return_value = {"Stacks": [{"Outputs": [{"OutputKey": "SomeOtherOutput", "OutputValue": "some-value"}]}]}
-
-        def mock_client(service_name):
-            if service_name == "cloudformation":
-                return mock_cf_client
-            return Mock()
-
-        mock_boto3_client.side_effect = mock_client
+    def test_exception_returns_500(self, mock_boto3_resource):
+        """Test that exceptions return 500 Internal Server Error."""
+        # Mock DynamoDB to raise an exception
+        mock_boto3_resource.side_effect = Exception("DynamoDB error")
 
         event = {"requestContext": {"connectionId": "test-connection-id", "authorizer": {"sessionId": "test-session-id"}}}
 
         result = lambda_handler(event, None)
 
-        # Should still succeed, just without instrumentation
-        assert result["statusCode"] == 200
+        assert result["statusCode"] == 500
+        body = json.loads(result["body"])
+        assert "DynamoDB error" in body["error"]
 
 
-class TestInstrumentLambdaFunctions:
-    """Test instrument_lambda_functions function."""
-
-    @patch("boto3.client")
-    def test_instrument_with_environment_variable(self, mock_boto3_client):
-        """Test instrumentation with environment variable for stack name."""
-        mock_cf_client = Mock()
-        mock_lambda_client = Mock()
-
-        # Mock stack outputs
-        mock_cf_client.describe_stacks.return_value = {
-            "Stacks": [{"Outputs": [{"OutputKey": "DebuggerLayerArn", "OutputValue": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:1"}]}]
-        }
-
-        # Mock stack resources
-        mock_cf_client.list_stack_resources.return_value = {
-            "StackResourceSummaries": [{"ResourceType": "AWS::Lambda::Function", "PhysicalResourceId": "test-function", "LogicalResourceId": "TestFunction"}]
-        }
-
-        # Mock function configuration
-        mock_lambda_client.get_function_configuration.return_value = {"Environment": {"Variables": {}}, "Layers": []}
-
-        def mock_client(service_name):
-            if service_name == "cloudformation":
-                return mock_cf_client
-            elif service_name == "lambda":
-                return mock_lambda_client
-            return Mock()
-
-        mock_boto3_client.side_effect = mock_client
-
-        # Set environment variable
-        import os
-
-        os.environ["AWS_CLOUDFORMATION_STACK_NAME"] = "my-plldb-stack"
-
-        try:
-            instrument_lambda_functions("target-stack", "session-123", "connection-456")
-
-            # Verify it used the environment variable
-            mock_cf_client.describe_stacks.assert_called_once_with(StackName="my-plldb-stack")
-        finally:
-            # Clean up
-            os.environ.pop("AWS_CLOUDFORMATION_STACK_NAME", None)
+class TestInvokeInstrumentationLambda:
+    """Test invoke_instrumentation_lambda function."""
 
     @patch("boto3.client")
-    def test_layer_already_present_not_duplicated(self, mock_boto3_client):
-        """Test that layer is not duplicated if already present."""
-        mock_cf_client = Mock()
+    def test_invoke_instrumentation_lambda_success(self, mock_boto3_client):
+        """Test successful lambda invocation."""
         mock_lambda_client = Mock()
+        mock_lambda_client.invoke.return_value = {"StatusCode": 202}
+        mock_boto3_client.return_value = mock_lambda_client
 
-        layer_arn = "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:1"
+        invoke_instrumentation_lambda("instrument", "test-stack", "session-123", "connection-456")
 
-        # Mock stack outputs
-        mock_cf_client.describe_stacks.return_value = {"Stacks": [{"Outputs": [{"OutputKey": "DebuggerLayerArn", "OutputValue": layer_arn}]}]}
+        mock_lambda_client.invoke.assert_called_once_with(
+            FunctionName="plldb-debugger-instrumentation",
+            InvocationType="Event",
+            Payload=json.dumps({"command": "instrument", "stackName": "test-stack", "sessionId": "session-123", "connectionId": "connection-456"}),
+        )
 
-        # Mock stack resources
-        mock_cf_client.list_stack_resources.return_value = {
-            "StackResourceSummaries": [{"ResourceType": "AWS::Lambda::Function", "PhysicalResourceId": "test-function", "LogicalResourceId": "TestFunction"}]
-        }
+    @patch("boto3.client")
+    def test_invoke_instrumentation_lambda_without_optional_params(self, mock_boto3_client):
+        """Test lambda invocation without optional parameters."""
+        mock_lambda_client = Mock()
+        mock_lambda_client.invoke.return_value = {"StatusCode": 202}
+        mock_boto3_client.return_value = mock_lambda_client
 
-        # Function already has the debug layer
-        mock_lambda_client.get_function_configuration.return_value = {"Environment": {"Variables": {}}, "Layers": [{"Arn": layer_arn}]}
+        invoke_instrumentation_lambda("uninstrument", "test-stack")
 
-        def mock_client(service_name):
-            if service_name == "cloudformation":
-                return mock_cf_client
-            elif service_name == "lambda":
-                return mock_lambda_client
-            return Mock()
+        mock_lambda_client.invoke.assert_called_once_with(
+            FunctionName="plldb-debugger-instrumentation", InvocationType="Event", Payload=json.dumps({"command": "uninstrument", "stackName": "test-stack"})
+        )
 
-        mock_boto3_client.side_effect = mock_client
+    @patch("boto3.client")
+    def test_invoke_instrumentation_lambda_exception(self, mock_boto3_client):
+        """Test lambda invocation exception handling."""
+        mock_lambda_client = Mock()
+        mock_lambda_client.invoke.side_effect = Exception("Invocation failed")
+        mock_boto3_client.return_value = mock_lambda_client
 
-        instrument_lambda_functions("target-stack", "session-123", "connection-456")
+        # Should not raise exception
+        invoke_instrumentation_lambda("instrument", "test-stack", "session-123", "connection-456")
 
-        # Verify update was called
-        mock_lambda_client.update_function_configuration.assert_called_once()
-        call_args = mock_lambda_client.update_function_configuration.call_args[1]
-
-        # Should still have only one instance of the layer
-        assert len(call_args["Layers"]) == 1
-        assert call_args["Layers"][0] == layer_arn
+        # Verify invocation was attempted
+        mock_lambda_client.invoke.assert_called_once()
