@@ -1,5 +1,6 @@
 import json
 from typing import Dict, Union
+import boto3
 from plldb.protocol import DebuggerRequest, DebuggerResponse, DebuggerInfo
 from plldb.executor import Executor
 
@@ -7,21 +8,37 @@ from plldb.executor import Executor
 class Debugger:
     def __init__(
         self,
+        session: boto3.Session,
         stack_name: str,
     ):
+        self.session = session
         self.stack_name = stack_name
-        self._inspect_stack()
         self._lambda_functions_lookup = {}
         self._executor = Executor()
+        self._inspect_stack()
 
     def _inspect_stack(self) -> None:
         """
-        Inspect the CloudFormation stack and download the processed template.
-        Load the processed template.
-        Create lookup table of lambda functions name -> logical id
-        Store the lookup table in the class
+        Inspect the CloudFormation stack and build lookup table.
+        Use describe_stack_resources to list stack resources.
+        Build associative map from PhysicalResourceId -> LogicalResourceId
+        for resource type AWS::Lambda::Function.
         """
-        pass
+        # Create CloudFormation client
+        cfn_client = self.session.client("cloudformation")
+
+        # Get all stack resources
+        paginator = cfn_client.get_paginator("describe_stack_resources")
+        page_iterator = paginator.paginate(StackName=self.stack_name)
+
+        # Build lookup table of PhysicalResourceId -> LogicalResourceId for Lambda functions
+        for page in page_iterator:
+            for resource in page["StackResources"]:
+                if resource["ResourceType"] == "AWS::Lambda::Function":
+                    physical_id = resource.get("PhysicalResourceId")
+                    logical_id = resource.get("LogicalResourceId")
+                    if physical_id and logical_id:
+                        self._lambda_functions_lookup[physical_id] = logical_id
 
     def handle_message(self, message: Dict) -> Union[DebuggerResponse, None]:
         # Check if this is a DebuggerInfo message
@@ -34,10 +51,11 @@ class Debugger:
         # Otherwise, it's a DebuggerRequest
         request = DebuggerRequest(**message)
 
-        lambda_function_name = request.lambdaFunctionName
-        lambda_function_logical_id = self._lambda_functions_lookup.get(lambda_function_name)
+        # The lambdaFunctionName is the physical resource ID
+        lambda_function_physical_id = request.lambdaFunctionName
+        lambda_function_logical_id = self._lambda_functions_lookup.get(lambda_function_physical_id)
         if not lambda_function_logical_id:
-            raise InvalidMessageError(f"Lambda function {lambda_function_name} not found in the stack")
+            raise InvalidMessageError(f"Lambda function {lambda_function_physical_id} not found in the stack")
 
         try:
             response = self._executor.invoke_lambda_function(
