@@ -5,8 +5,9 @@ import boto3
 import click
 
 from plldb.debugger import Debugger
-from plldb.setup import BootstrapManager
 from plldb.rest_client import RestApiClient
+from plldb.setup import BootstrapManager
+from plldb.simulator import start_simulator
 from plldb.stack_discovery import StackDiscovery
 from plldb.websocket_client import WebSocketClient
 
@@ -84,6 +85,43 @@ def attach(ctx, stack_name: str):
         ctx.exit(1)
     except KeyboardInterrupt:
         click.echo("\nDebugger session terminated")
+    except Exception as e:
+        click.echo(f"Unexpected error: {e}", err=True)
+        ctx.exit(1)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def simulator(ctx):
+    """Local Lambda function simulator"""
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(simulator_start)
+
+
+@simulator.command("start")
+@click.option(
+    "-t",
+    "--template",
+    help="Path to CloudFormation template. If relative, resolved from current directory",
+)
+@click.option(
+    "-d",
+    "--directory",
+    help="Working directory for simulator. Cannot be used with absolute template path",
+)
+@click.pass_context
+def simulator_start(ctx, template: str, directory: str):
+    """Start the local Lambda function simulator"""
+    try:
+        start_simulator(template=template, directory=directory)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        ctx.exit(1)
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        ctx.exit(1)
+    except KeyboardInterrupt:
+        pass  # Handled in simulator
     except Exception as e:
         click.echo(f"Unexpected error: {e}", err=True)
         ctx.exit(1)
