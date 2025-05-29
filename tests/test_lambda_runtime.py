@@ -285,7 +285,7 @@ class TestPollingAndWebSocket:
     def test_send_websocket_notification_success(self, mock_client, monkeypatch):
         """Test successful WebSocket notification."""
         monkeypatch.setenv(
-            "WEBSOCKET_API_ENDPOINT",
+            "DEBUGGER_WEBSOCKET_API_ENDPOINT",
             "https://test.execute-api.us-east-1.amazonaws.com/prod",
         )
 
@@ -308,7 +308,7 @@ class TestPollingAndWebSocket:
     def test_send_websocket_notification_error(self, mock_client, monkeypatch):
         """Test WebSocket notification error handling (should not raise)."""
         monkeypatch.setenv(
-            "WEBSOCKET_API_ENDPOINT",
+            "DEBUGGER_WEBSOCKET_API_ENDPOINT",
             "https://test.execute-api.us-east-1.amazonaws.com/prod",
         )
 
