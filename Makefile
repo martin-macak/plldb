@@ -4,10 +4,11 @@ all: init build
 
 # Initialize development environment
 init:
-	uv sync --dev
+	rm -rf .venv/lib/python3.13/site-packages/plldb-*
+	uv sync --dev --no-cache
 
 # Build the package
-build:
+build: init
 	uv build
 
 # Run tests
