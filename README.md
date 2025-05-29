@@ -24,7 +24,7 @@ This role grants following permissions:
 
 #### PLLDBManagerRole
 
-This role is used to modify AWS Lambda functions. This is necessary to add AWS_LAMBDA_EXEC_WRAPPER environment variable and also the _DEBUGGER_SESSION_ID_ and _DEBUGGER_CONNECTION_ID_ environment variables. It also allows to attach and detach lambda layers.
+This role is used to modify AWS Lambda functions. This is necessary to add AWS_LAMBDA_EXEC_WRAPPER environment variable and also the DEBUGGER_SESSION_ID and DEBUGGER_CONNECTION_ID environment variables. It also allows to attach and detach lambda layers.
 
 This role grants following permissions:
 - Read and Write into PLLDBDebugger table
@@ -57,8 +57,8 @@ WebSocket API is used to send and receive debugger messages.
 When the connection is initiated, the tool sends the session id in the query parameter. This is used to authorize the connection. When the connection is initiated, the WebSocket API handler also invokes the manager that modifies the stack that's debugged. This is done under PLLDBManagerRole.
 
 This instrumentation adds the following environment variables to the lambda function:
-- _DEBUGGER_SESSION_ID_ - this is the session id that's used to identify the session
-- _DEBUGGER_CONNECTION_ID_ - this is the connection id that's used to identify the connection
+- DEBUGGER_SESSION_ID - this is the session id that's used to identify the session
+- DEBUGGER_CONNECTION_ID - this is the connection id that's used to identify the connection
 - AWS_LAMBDA_EXEC_WRAPPER - this is the wrapper that's used to intercept the invocation requests
 and it also attaches a custom layer that contains the debugger code.
 

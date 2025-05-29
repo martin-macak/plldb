@@ -28,6 +28,13 @@ make clean      # Clean build artifacts and cache
 make build    # Build distribution packages
 ```
 
+### GitHub Interactions
+```bash
+gh pr list    # List pull requests
+gh issue create    # Create a new issue
+gh pr create    # Create a pull request
+```
+
 ## Architecture
 
 **plldb** (Python Lambda Local DeBugger) is a CLI tool that enables local debugging of AWS Lambda functions by installing infrastructure that intercepts Lambda invocations via WebSocket API.
@@ -44,7 +51,7 @@ When debugging:
 1. Local tool generates session UUID as auth token
 2. Tool assumes PLLDBDebuggerRole and creates PENDING session in DynamoDB
 3. WebSocket connection authorized via session ID
-4. Lambda functions modified with environment variables (_DEBUGGER_SESSION_ID_, _DEBUGGER_CONNECTION_ID_)
+4. Lambda functions modified with environment variables (DEBUGGER_SESSION_ID, DEBUGGER_CONNECTION_ID)
 5. Invocations intercepted and sent to local debugger via WebSocket
 6. Local debugger executes code and returns response
 

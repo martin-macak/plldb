@@ -192,8 +192,8 @@ def main():
         sys.exit(1)
 
     # Check if debugging is enabled
-    session_id = os.environ.get("_DEBUGGER_SESSION_ID_")
-    connection_id = os.environ.get("_DEBUGGER_CONNECTION_ID_")
+    session_id = os.environ.get("DEBUGGER_SESSION_ID")
+    connection_id = os.environ.get("DEBUGGER_CONNECTION_ID")
 
     while True:
         try:

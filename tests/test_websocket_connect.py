@@ -71,9 +71,9 @@ class TestWebSocketConnect:
         # Check first function update
         first_call = mock_lambda_client.update_function_configuration.call_args_list[0]
         assert first_call[1]["FunctionName"] == "test-function-1"
-        assert first_call[1]["Environment"]["Variables"]["_DEBUGGER_SESSION_ID_"] == "test-session-id"
-        assert first_call[1]["Environment"]["Variables"]["_DEBUGGER_CONNECTION_ID_"] == "test-connection-id"
-        assert first_call[1]["Environment"]["Variables"]["_AWS_LAMBDA_EXEC_WRAPPER"] == "/opt/bin/bootstrap"
+        assert first_call[1]["Environment"]["Variables"]["DEBUGGER_SESSION_ID"] == "test-session-id"
+        assert first_call[1]["Environment"]["Variables"]["DEBUGGER_CONNECTION_ID"] == "test-connection-id"
+        assert first_call[1]["Environment"]["Variables"]["AWS_LAMBDA_EXEC_WRAPPER"] == "/opt/bin/bootstrap"
         assert first_call[1]["Environment"]["Variables"]["EXISTING_VAR"] == "value"
         assert len(first_call[1]["Layers"]) == 2  # Original layer + debug layer
 

@@ -5,8 +5,8 @@ When the connection is established, the debugged stack lambda functions must be 
 ## Acceptance Criteria
 
 - after the connection is established, the debugged stack lambda functions must be instrumented
-- every lambda function in the instrumented stack must have the `_DEBUGGER_SESSION_ID_` and `_DEBUGGER_CONNECTION_ID_` environment variables set
-- every lambda function in the instrumented stack must have the `_AWS_LAMBDA_EXEC_WRAPPER` environment variable set to `/opt/bin/bootstrap`
+- every lambda function in the instrumented stack must have the `DEBUGGER_SESSION_ID` and `DEBUGGER_CONNECTION_ID` environment variables set
+- every lambda function in the instrumented stack must have the `AWS_LAMBDA_EXEC_WRAPPER` environment variable set to `/opt/bin/bootstrap`
 - every lambda function in the instrumented stack must have the the PLLDBDebuggerRuntime layer attached
 - after the connection is broken, the instrumented stack lambda functions must be de-instrumented
 

@@ -70,8 +70,8 @@ class TestLambdaLayer:
                 # Verify lambda_runtime.py content
                 runtime_content = zipf.read("bin/lambda_runtime.py").decode()
                 assert "def lambda_handler" in runtime_content or "def main" in runtime_content
-                assert "_DEBUGGER_SESSION_ID_" in runtime_content
-                assert "_DEBUGGER_CONNECTION_ID_" in runtime_content
+                assert "DEBUGGER_SESSION_ID" in runtime_content
+                assert "DEBUGGER_CONNECTION_ID" in runtime_content
                 assert "PLLDBDebuggerRole" in runtime_content
                 assert "PLLDBDebugger" in runtime_content
 

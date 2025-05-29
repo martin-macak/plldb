@@ -395,8 +395,8 @@ class TestMainLoop:
     def test_main_normal_mode(self, mock_run_normal, mock_get_next, monkeypatch):
         """Test main in normal mode without debug environment variables."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
-        monkeypatch.delenv("_DEBUGGER_SESSION_ID_", raising=False)
-        monkeypatch.delenv("_DEBUGGER_CONNECTION_ID_", raising=False)
+        monkeypatch.delenv("DEBUGGER_SESSION_ID", raising=False)
+        monkeypatch.delenv("DEBUGGER_CONNECTION_ID", raising=False)
 
         # First call returns event, second call raises to exit loop
         mock_get_next.side_effect = [({"test": "event"}, "request-1"), self.StopLoopException("Exit loop")]
@@ -416,8 +416,8 @@ class TestMainLoop:
     def test_main_debug_mode_success(self, mock_send_response, mock_poll, mock_ws_notify, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
         """Test main in debug mode with successful response."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
-        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
-        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
+        monkeypatch.setenv("DEBUGGER_CONNECTION_ID", "test-connection")
         monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "test-function")
 
         # Setup mocks
@@ -454,8 +454,8 @@ class TestMainLoop:
     def test_main_debug_mode_with_error(self, mock_send_error, mock_poll, mock_ws_notify, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
         """Test main in debug mode when debugger returns error."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
-        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
-        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
+        monkeypatch.setenv("DEBUGGER_CONNECTION_ID", "test-connection")
 
         # Setup mocks
         mock_session = Mock()
@@ -477,8 +477,8 @@ class TestMainLoop:
     def test_main_debug_mode_role_assumption_failure(self, mock_send_error, mock_assume_role, mock_get_next, monkeypatch):
         """Test main when debugger role assumption fails."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
-        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
-        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
+        monkeypatch.setenv("DEBUGGER_CONNECTION_ID", "test-connection")
 
         # Setup mocks
         mock_assume_role.side_effect = Exception("Role assumption failed")
@@ -499,8 +499,8 @@ class TestMainLoop:
     def test_main_debug_mode_create_request_failure(self, mock_send_error, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
         """Test main when creating debugger request fails."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
-        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
-        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
+        monkeypatch.setenv("DEBUGGER_CONNECTION_ID", "test-connection")
 
         # Setup mocks
         mock_session = Mock()
@@ -521,8 +521,8 @@ class TestMainLoop:
     def test_main_continues_on_handler_error(self, mock_run_normal, mock_get_next, monkeypatch):
         """Test main continues loop when handler raises exception."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
-        monkeypatch.delenv("_DEBUGGER_SESSION_ID_", raising=False)
-        monkeypatch.delenv("_DEBUGGER_CONNECTION_ID_", raising=False)
+        monkeypatch.delenv("DEBUGGER_SESSION_ID", raising=False)
+        monkeypatch.delenv("DEBUGGER_CONNECTION_ID", raising=False)
 
         # Setup mocks - normal handler throws exception on first call
         mock_get_next.side_effect = [({"test": "event1"}, "request-1"), ({"test": "event2"}, "request-2"), self.StopLoopException("Exit loop")]
@@ -547,8 +547,8 @@ class TestMainLoop:
     def test_main_debug_mode_websocket_error_ignored(self, mock_send_response, mock_poll, mock_ws_notify, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
         """Test that WebSocket errors are handled gracefully."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
-        monkeypatch.setenv("_DEBUGGER_SESSION_ID_", "test-session")
-        monkeypatch.setenv("_DEBUGGER_CONNECTION_ID_", "test-connection")
+        monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
+        monkeypatch.setenv("DEBUGGER_CONNECTION_ID", "test-connection")
 
         # Setup mocks
         mock_session = Mock()

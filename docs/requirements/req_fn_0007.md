@@ -3,7 +3,7 @@
 Create a lambda layer that can override default python runtime.
 According to [AWS Lambda Runtime API](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html), the runtime can be overridden by setting the `AWS_LAMBDA_EXEC_WRAPPER` environment variable.
 
-This layer delivers custom python scripts that register to the Lambda Runtime API. Instead of calling the lambda handler, this runtime checks if the _DEBUGGER_SESSION_ID_ and _DEBUGGER_CONNECTION_ID_ environment variables are set. If they are, it will engage with the debugger.
+This layer delivers custom python scripts that register to the Lambda Runtime API. Instead of calling the lambda handler, this runtime checks if the DEBUGGER_SESSION_ID and DEBUGGER_CONNECTION_ID environment variables are set. If they are, it will engage with the debugger.
 
 To do so, it assumes the PLLDBDebuggerRole role. Under this role, it sends a message to the PLLDBWebSocket API. This message contains the environment variables and serialized request. Then it starts a polling loop that waits for the response from the debugger. If the item with the RequestId is updated and the loop detects that the ResponseCode is not empty, then it returns the response to the AWS Lambda Runtime API.
 

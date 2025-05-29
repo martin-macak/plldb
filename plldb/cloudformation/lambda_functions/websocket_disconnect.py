@@ -37,9 +37,9 @@ def deinstrument_lambda_functions(stack_name: str) -> None:
 
                 # Remove debug environment variables
                 env_vars = current_config.get("Environment", {}).get("Variables", {})
-                env_vars.pop("_DEBUGGER_SESSION_ID_", None)
-                env_vars.pop("_DEBUGGER_CONNECTION_ID_", None)
-                env_vars.pop("_AWS_LAMBDA_EXEC_WRAPPER", None)
+                env_vars.pop("DEBUGGER_SESSION_ID", None)
+                env_vars.pop("DEBUGGER_CONNECTION_ID", None)
+                env_vars.pop("AWS_LAMBDA_EXEC_WRAPPER", None)
 
                 # Remove our layer if present
                 layers = current_config.get("Layers", [])

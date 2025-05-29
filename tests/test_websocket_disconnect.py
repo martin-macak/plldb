@@ -42,15 +42,15 @@ class TestWebSocketDisconnect:
                 "Environment": {
                     "Variables": {
                         "EXISTING_VAR": "value",
-                        "_DEBUGGER_SESSION_ID_": "test-session-id",
-                        "_DEBUGGER_CONNECTION_ID_": "test-connection-id",
-                        "_AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap",
+                        "DEBUGGER_SESSION_ID": "test-session-id",
+                        "DEBUGGER_CONNECTION_ID": "test-connection-id",
+                        "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap",
                     }
                 },
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:1"}, {"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}],
             },
             {
-                "Environment": {"Variables": {"_DEBUGGER_SESSION_ID_": "test-session-id", "_DEBUGGER_CONNECTION_ID_": "test-connection-id", "_AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap"}},
+                "Environment": {"Variables": {"DEBUGGER_SESSION_ID": "test-session-id", "DEBUGGER_CONNECTION_ID": "test-connection-id", "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap"}},
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:1"}],
             },
         ]
@@ -198,7 +198,7 @@ class TestWebSocketDisconnect:
         }
 
         # First function fails, second succeeds
-        mock_lambda_client.get_function_configuration.side_effect = [Exception("Function not found"), {"Environment": {"Variables": {"_DEBUGGER_SESSION_ID_": "test"}}, "Layers": []}]
+        mock_lambda_client.get_function_configuration.side_effect = [Exception("Function not found"), {"Environment": {"Variables": {"DEBUGGER_SESSION_ID": "test"}}, "Layers": []}]
 
         def mock_client(service_name):
             if service_name == "cloudformation":
@@ -246,9 +246,9 @@ class TestDeinstrumentLambdaFunctions:
                 "Variables": {
                     "REGULAR_VAR": "keep-this",
                     "ANOTHER_VAR": "also-keep",
-                    "_DEBUGGER_SESSION_ID_": "remove-this",
-                    "_DEBUGGER_CONNECTION_ID_": "remove-this-too",
-                    "_AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap",
+                    "DEBUGGER_SESSION_ID": "remove-this",
+                    "DEBUGGER_CONNECTION_ID": "remove-this-too",
+                    "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap",
                 }
             },
             "Layers": [],

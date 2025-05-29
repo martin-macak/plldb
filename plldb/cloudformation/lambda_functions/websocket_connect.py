@@ -41,9 +41,9 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
 
                 # Prepare environment variables
                 env_vars = current_config.get("Environment", {}).get("Variables", {})
-                env_vars["_DEBUGGER_SESSION_ID_"] = session_id
-                env_vars["_DEBUGGER_CONNECTION_ID_"] = connection_id
-                env_vars["_AWS_LAMBDA_EXEC_WRAPPER"] = "/opt/bin/bootstrap"
+                env_vars["DEBUGGER_SESSION_ID"] = session_id
+                env_vars["DEBUGGER_CONNECTION_ID"] = connection_id
+                env_vars["AWS_LAMBDA_EXEC_WRAPPER"] = "/opt/bin/bootstrap"
 
                 # Prepare layers - add our layer if not already present
                 layers = current_config.get("Layers", [])
@@ -52,7 +52,11 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
                     layer_arns.append(layer_arn)
 
                 # Update function configuration
-                lambda_client.update_function_configuration(FunctionName=function_name, Environment={"Variables": env_vars}, Layers=layer_arns)
+                lambda_client.update_function_configuration(
+                    FunctionName=function_name,
+                    Environment={"Variables": env_vars},
+                    Layers=layer_arns,
+                )
 
                 logger.info(f"Successfully instrumented: {function_name}")
 
@@ -78,7 +82,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         if not session_id:
             # This shouldn't happen if authorizer is working correctly
             logger.info(f"Unauthorized access attempted: {connection_id=}")
-            result = {"statusCode": 403, "body": json.dumps({"error": "No session ID found"})}
+            result = {
+                "statusCode": 403,
+                "body": json.dumps({"error": "No session ID found"}),
+            }
             logger.debug(f"Return value: {json.dumps(result)}")
             return result
 
@@ -90,14 +97,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         response = table.get_item(Key={"SessionId": session_id})
         if "Item" not in response:
             logger.error(f"Session not found: {session_id=}")
-            result = {"statusCode": 404, "body": json.dumps({"error": "Session not found"})}
+            result = {
+                "statusCode": 404,
+                "body": json.dumps({"error": "Session not found"}),
+            }
             logger.debug(f"Return value: {json.dumps(result)}")
             return result
 
         stack_name = response["Item"].get("StackName")
         if not stack_name:
             logger.error(f"No stack name found for session: {session_id=}")
-            result = {"statusCode": 400, "body": json.dumps({"error": "No stack name in session"})}
+            result = {
+                "statusCode": 400,
+                "body": json.dumps({"error": "No stack name in session"}),
+            }
             logger.debug(f"Return value: {json.dumps(result)}")
             return result
 
@@ -113,7 +126,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         instrument_lambda_functions(stack_name, session_id, connection_id)
 
         logger.info(f"Session connected and stack instrumented: {session_id=} {stack_name=}")
-        result = {"statusCode": 200, "body": json.dumps({"message": "Connected", "sessionId": session_id})}
+        result = {
+            "statusCode": 200,
+            "body": json.dumps({"message": "Connected", "sessionId": session_id}),
+        }
         logger.debug(f"Return value: {json.dumps(result)}")
         return result
 
