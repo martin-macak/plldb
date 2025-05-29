@@ -107,8 +107,11 @@ class TestGetLatestLayerVersion:
 class TestInstrumentLambdaFunctions:
     """Test instrument_lambda_functions function."""
 
-    def test_instrument_lambda_functions_success(self, mock_aws_services):
+    def test_instrument_lambda_functions_success(self, mock_aws_services, monkeypatch):
         """Test successful instrumentation of lambda functions."""
+        # Mock the WEBSOCKET_ENDPOINT environment variable
+        monkeypatch.setenv("WEBSOCKET_ENDPOINT", "https://test.execute-api.us-east-1.amazonaws.com/prod")
+
         instrument_lambda_functions("test-stack", "session-123", "connection-456")
 
         # Verify layer lookup
@@ -129,6 +132,7 @@ class TestInstrumentLambdaFunctions:
             assert kwargs["Environment"]["Variables"]["DEBUGGER_SESSION_ID"] == "session-123"
             assert kwargs["Environment"]["Variables"]["DEBUGGER_CONNECTION_ID"] == "connection-456"
             assert kwargs["Environment"]["Variables"]["AWS_LAMBDA_EXEC_WRAPPER"] == "/opt/bin/bootstrap"
+            assert kwargs["Environment"]["Variables"]["DEBUGGER_WEBSOCKET_API_ENDPOINT"] == "https://test.execute-api.us-east-1.amazonaws.com/prod"
             assert "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:3" in kwargs["Layers"]
 
         # Verify IAM policy was added - should be called twice (for two functions)
@@ -148,8 +152,10 @@ class TestInstrumentLambdaFunctions:
             assert policy_doc["Statement"][0]["Action"] == "sts:AssumeRole"
             assert policy_doc["Statement"][0]["Resource"] == "arn:aws:iam::123456789012:role/PLLDBDebuggerRole"
 
-    def test_instrument_lambda_functions_idempotent(self, mock_aws_services):
+    def test_instrument_lambda_functions_idempotent(self, mock_aws_services, monkeypatch):
         """Test that instrumentation is idempotent."""
+        # Mock the WEBSOCKET_ENDPOINT environment variable
+        monkeypatch.setenv("WEBSOCKET_ENDPOINT", "https://test.execute-api.us-east-1.amazonaws.com/prod")
         # Set up already instrumented function
         mock_aws_services["lambda_client"].get_function_configuration.side_effect = [
             {
@@ -188,12 +194,28 @@ class TestUninstrumentLambdaFunctions:
         # Set up instrumented function
         mock_aws_services["lambda_client"].get_function_configuration.side_effect = [
             {
-                "Environment": {"Variables": {"DEBUGGER_SESSION_ID": "session-123", "DEBUGGER_CONNECTION_ID": "connection-456", "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap", "OTHER_VAR": "value"}},
+                "Environment": {
+                    "Variables": {
+                        "DEBUGGER_SESSION_ID": "session-123",
+                        "DEBUGGER_CONNECTION_ID": "connection-456",
+                        "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap",
+                        "DEBUGGER_WEBSOCKET_API_ENDPOINT": "https://test.execute-api.us-east-1.amazonaws.com/prod",
+                        "OTHER_VAR": "value",
+                    }
+                },
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:2"}, {"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}],
                 "Role": "arn:aws:iam::123456789012:role/test-function-1-role",
             },
             {
-                "Environment": {"Variables": {"DEBUGGER_SESSION_ID": "session-123", "DEBUGGER_CONNECTION_ID": "connection-456", "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap", "OTHER_VAR": "value"}},
+                "Environment": {
+                    "Variables": {
+                        "DEBUGGER_SESSION_ID": "session-123",
+                        "DEBUGGER_CONNECTION_ID": "connection-456",
+                        "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap",
+                        "DEBUGGER_WEBSOCKET_API_ENDPOINT": "https://test.execute-api.us-east-1.amazonaws.com/prod",
+                        "OTHER_VAR": "value",
+                    }
+                },
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:2"}, {"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}],
                 "Role": "arn:aws:iam::123456789012:role/test-function-2-role",
             },
@@ -213,6 +235,7 @@ class TestUninstrumentLambdaFunctions:
             assert "DEBUGGER_SESSION_ID" not in kwargs["Environment"]["Variables"]
             assert "DEBUGGER_CONNECTION_ID" not in kwargs["Environment"]["Variables"]
             assert "AWS_LAMBDA_EXEC_WRAPPER" not in kwargs["Environment"]["Variables"]
+            assert "DEBUGGER_WEBSOCKET_API_ENDPOINT" not in kwargs["Environment"]["Variables"]
             assert kwargs["Environment"]["Variables"].get("OTHER_VAR") == "value"
             # Should remove only the debug layer
             assert len(kwargs["Layers"]) == 1
@@ -243,8 +266,11 @@ class TestUninstrumentLambdaFunctions:
 class TestLambdaHandler:
     """Test lambda_handler function."""
 
-    def test_lambda_handler_instrument_success(self, mock_aws_services):
+    def test_lambda_handler_instrument_success(self, mock_aws_services, monkeypatch):
         """Test successful instrument command."""
+        # Mock the WEBSOCKET_ENDPOINT environment variable
+        monkeypatch.setenv("WEBSOCKET_ENDPOINT", "https://test.execute-api.us-east-1.amazonaws.com/prod")
+
         event = {"command": "instrument", "stackName": "test-stack", "sessionId": "session-123", "connectionId": "connection-456"}
 
         result = lambda_handler(event, None)

@@ -138,8 +138,13 @@ def poll_for_response(session: boto3.Session, request_id: str, timeout: int = 30
 
 def send_websocket_notification(session: boto3.Session, connection_id: str, message: Dict[str, Any]) -> None:
     """Send notification to WebSocket connection."""
-    # Get WebSocket API endpoint from environment or CloudFormation
-    apigateway = session.client("apigatewaymanagementapi", endpoint_url=os.environ.get("WEBSOCKET_API_ENDPOINT"))
+    # Get WebSocket API endpoint from environment
+    websocket_endpoint = os.environ.get("DEBUGGER_WEBSOCKET_API_ENDPOINT")
+    if not websocket_endpoint:
+        print("DEBUGGER_WEBSOCKET_API_ENDPOINT not set", file=sys.stderr)
+        return
+
+    apigateway = session.client("apigatewaymanagementapi", endpoint_url=websocket_endpoint)
 
     try:
         apigateway.post_to_connection(ConnectionId=connection_id, Data=json.dumps(message).encode())

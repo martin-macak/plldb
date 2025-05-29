@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Workflow Guidelines
 
 - When fixing github issues, always create new branch for it, called issue/gh-<issue-id>. 
+- Before committing, run `make format` to format codebase
 
 ## Commands
 

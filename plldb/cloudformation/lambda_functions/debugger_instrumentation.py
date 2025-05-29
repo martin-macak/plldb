@@ -99,6 +99,10 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
                 env_vars["DEBUGGER_SESSION_ID"] = session_id
                 env_vars["DEBUGGER_CONNECTION_ID"] = connection_id
                 env_vars["AWS_LAMBDA_EXEC_WRAPPER"] = "/opt/bin/bootstrap"
+                # Add WebSocket endpoint for the lambda runtime to use
+                websocket_endpoint = os.environ.get("WEBSOCKET_ENDPOINT")
+                if websocket_endpoint:
+                    env_vars["DEBUGGER_WEBSOCKET_API_ENDPOINT"] = websocket_endpoint
 
                 # Prepare layers - add our layer if not already present
                 layers = current_config.get("Layers", [])
@@ -185,6 +189,7 @@ def uninstrument_lambda_functions(stack_name: str, session_id: Optional[str] = N
                 env_vars.pop("DEBUGGER_SESSION_ID", None)
                 env_vars.pop("DEBUGGER_CONNECTION_ID", None)
                 env_vars.pop("AWS_LAMBDA_EXEC_WRAPPER", None)
+                env_vars.pop("DEBUGGER_WEBSOCKET_API_ENDPOINT", None)
 
                 # Remove any PLLDBDebuggerRuntime layer (regardless of version)
                 layers = current_config.get("Layers", [])
