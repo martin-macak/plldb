@@ -2,15 +2,41 @@ import json
 import boto3
 import logging
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+
+def send_debugger_info(connection_id: str, session_id: str, log_level: str, message: str) -> None:
+    """Send a DebuggerInfo message to the WebSocket connection."""
+    try:
+        # Get WebSocket endpoint from environment
+        websocket_endpoint = os.environ.get("WEBSOCKET_ENDPOINT")
+        if not websocket_endpoint:
+            logger.warning("WEBSOCKET_ENDPOINT not set, cannot send debugger info")
+            return
+
+        # Create API Gateway Management API client
+        client = boto3.client("apigatewaymanagementapi", endpoint_url=websocket_endpoint)
+
+        # Create DebuggerInfo message
+        info_message = {"sessionId": session_id, "connectionId": connection_id, "logLevel": log_level, "message": message, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+        # Send message to connection
+        client.post_to_connection(ConnectionId=connection_id, Data=json.dumps(info_message).encode("utf-8"))
+
+    except Exception as e:
+        logger.error(f"Failed to send debugger info: {e}")
 
 
 def instrument_lambda_functions(stack_name: str, session_id: str, connection_id: str) -> None:
     """Instrument all Lambda functions in the stack with debug configuration."""
     cloudformation = boto3.client("cloudformation")
     lambda_client = boto3.client("lambda")
+
+    # Send info message that instrumentation has begun
+    send_debugger_info(connection_id, session_id, "INFO", f"Starting instrumentation for stack: {stack_name}")
 
     # Get the PLLDBDebuggerRuntime layer ARN from the current stack
     current_stack = cloudformation.describe_stacks(StackName=os.environ.get("AWS_CLOUDFORMATION_STACK_NAME", "plldb-infrastructure"))["Stacks"][0]
@@ -21,7 +47,9 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
             break
 
     if not layer_arn:
-        logger.error("PLLDBDebuggerRuntime layer ARN not found in stack outputs")
+        error_msg = "PLLDBDebuggerRuntime layer ARN not found in stack outputs"
+        logger.error(error_msg)
+        send_debugger_info(connection_id, session_id, "ERROR", f"Instrumentation failed: {error_msg}")
         return
 
     # List all resources in the target stack
@@ -65,18 +93,31 @@ def instrument_lambda_functions(stack_name: str, session_id: str, connection_id:
                 )
 
                 logger.info(f"Successfully instrumented: {function_name}")
+                send_debugger_info(connection_id, session_id, "INFO", f"Instrumented Lambda function: {function_name}")
 
             except Exception as e:
-                logger.error(f"Failed to instrument function {function.get('LogicalResourceId')}: {e}")
+                error_msg = f"Failed to instrument function {function.get('LogicalResourceId')}: {e}"
+                logger.error(error_msg)
+                send_debugger_info(connection_id, session_id, "ERROR", error_msg)
 
     except Exception as e:
-        logger.error(f"Failed to list stack resources for {stack_name}: {e}")
+        error_msg = f"Failed to list stack resources for {stack_name}: {e}"
+        logger.error(error_msg)
+        send_debugger_info(connection_id, session_id, "ERROR", f"Instrumentation failed: {error_msg}")
+        return
+
+    # Send completion message
+    send_debugger_info(connection_id, session_id, "INFO", f"Completed instrumentation for stack: {stack_name}")
 
 
-def uninstrument_lambda_functions(stack_name: str) -> None:
+def uninstrument_lambda_functions(stack_name: str, session_id: Optional[str] = None, connection_id: Optional[str] = None) -> None:
     """Remove debug instrumentation from all Lambda functions in the stack."""
     cloudformation = boto3.client("cloudformation")
     lambda_client = boto3.client("lambda")
+
+    # Send info message that de-instrumentation has begun (if connection details provided)
+    if connection_id and session_id:
+        send_debugger_info(connection_id, session_id, "INFO", f"Starting de-instrumentation for stack: {stack_name}")
 
     # Get the PLLDBDebuggerRuntime layer ARN from the current stack
     current_stack = cloudformation.describe_stacks(StackName=os.environ.get("AWS_CLOUDFORMATION_STACK_NAME", "plldb-infrastructure"))["Stacks"][0]
@@ -129,12 +170,25 @@ def uninstrument_lambda_functions(stack_name: str) -> None:
                 lambda_client.update_function_configuration(**update_params)
 
                 logger.info(f"Successfully uninstrumented: {function_name}")
+                if connection_id and session_id:
+                    send_debugger_info(connection_id, session_id, "INFO", f"De-instrumented Lambda function: {function_name}")
 
             except Exception as e:
-                logger.error(f"Failed to uninstrument function {function.get('LogicalResourceId')}: {e}")
+                error_msg = f"Failed to uninstrument function {function.get('LogicalResourceId')}: {e}"
+                logger.error(error_msg)
+                if connection_id and session_id:
+                    send_debugger_info(connection_id, session_id, "ERROR", error_msg)
 
     except Exception as e:
-        logger.error(f"Failed to list stack resources for {stack_name}: {e}")
+        error_msg = f"Failed to list stack resources for {stack_name}: {e}"
+        logger.error(error_msg)
+        if connection_id and session_id:
+            send_debugger_info(connection_id, session_id, "ERROR", f"De-instrumentation failed: {error_msg}")
+        return
+
+    # Send completion message
+    if connection_id and session_id:
+        send_debugger_info(connection_id, session_id, "INFO", f"Completed de-instrumentation for stack: {stack_name}")
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa: ARG001
@@ -166,7 +220,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
             return {"statusCode": 200, "body": json.dumps({"message": f"Stack {stack_name} instrumented successfully"})}
 
         elif command == "uninstrument":
-            uninstrument_lambda_functions(stack_name)
+            uninstrument_lambda_functions(stack_name, session_id, connection_id)
             logger.info(f"Uninstrumentation completed for stack: {stack_name}")
             return {"statusCode": 200, "body": json.dumps({"message": f"Stack {stack_name} uninstrumented successfully"})}
 

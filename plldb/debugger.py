@@ -1,6 +1,6 @@
 import json
-from typing import Dict
-from plldb.protocol import DebuggerRequest, DebuggerResponse
+from typing import Dict, Union
+from plldb.protocol import DebuggerRequest, DebuggerResponse, DebuggerInfo
 from plldb.executor import Executor
 
 
@@ -23,7 +23,15 @@ class Debugger:
         """
         pass
 
-    def handle_message(self, message: Dict) -> DebuggerResponse:
+    def handle_message(self, message: Dict) -> Union[DebuggerResponse, None]:
+        # Check if this is a DebuggerInfo message
+        if "logLevel" in message and "timestamp" in message:
+            info = DebuggerInfo(**message)
+            # Print the log message to console
+            print(f"[{info.timestamp}] [{info.logLevel}] {info.message}")
+            return None
+
+        # Otherwise, it's a DebuggerRequest
         request = DebuggerRequest(**message)
 
         lambda_function_name = request.lambdaFunctionName

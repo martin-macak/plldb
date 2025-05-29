@@ -254,6 +254,7 @@ Resources:
         Variables:
           LOG_LEVEL: INFO
           AWS_CLOUDFORMATION_STACK_NAME: !Ref AWS::StackName
+          WEBSOCKET_ENDPOINT: !Sub 'https://${PLLDBWebSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/${PLLDBWebSocketStage}'
 
   PLLDBWebSocketAPI:
     Type: AWS::ApiGatewayV2::Api

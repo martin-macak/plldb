@@ -25,3 +25,14 @@ class DebuggerResponse:
     statusCode: int
     response: str
     errorMessage: Optional[str] = None
+
+
+@dataclass
+class DebuggerInfo:
+    """WebSocket info/log message from backend Lambda to debugger."""
+
+    sessionId: str
+    connectionId: str
+    logLevel: str
+    message: str
+    timestamp: str

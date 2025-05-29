@@ -11,7 +11,7 @@ from urllib.parse import urlparse, urlunparse
 import websockets
 
 from plldb.debugger import InvalidMessageError
-from plldb.protocol import DebuggerRequest, DebuggerResponse
+from plldb.protocol import DebuggerRequest, DebuggerResponse, DebuggerInfo
 
 logger = logging.getLogger(__name__)
 
@@ -114,12 +114,21 @@ class WebSocketClient:
                     logger.info(f"Received message: {message}")
 
                     if message_handler:
-                        # Deserialize message to DebuggerRequest
-                        try:
-                            request = DebuggerRequest(**message)
-                        except (TypeError, KeyError) as e:
-                            logger.error(f"Failed to deserialize message: {e}")
-                            continue
+                        # Check if this is a DebuggerInfo message
+                        if "logLevel" in message and "timestamp" in message:
+                            # Handle DebuggerInfo messages
+                            try:
+                                info = DebuggerInfo(**message)
+                            except (TypeError, KeyError) as e:
+                                logger.error(f"Failed to deserialize DebuggerInfo message: {e}")
+                                continue
+                        else:
+                            # Deserialize message to DebuggerRequest
+                            try:
+                                request = DebuggerRequest(**message)
+                            except (TypeError, KeyError) as e:
+                                logger.error(f"Failed to deserialize DebuggerRequest message: {e}")
+                                continue
 
                         # Run handler in a separate thread
                         future = loop.run_in_executor(self._executor, message_handler, message)
@@ -130,19 +139,21 @@ class WebSocketClient:
                             if isinstance(result, DebuggerResponse):
                                 # Send WebSocket message with result
                                 await self.send_message(dataclasses.asdict(result))
+                            # If result is None (from DebuggerInfo), don't send response
                         except InvalidMessageError as e:
                             logger.error(f"Invalid message: {e}")
                             sys.exit(1)
                         except Exception as e:
                             logger.error(f"Error in message handler: {e}")
-                            # Send WebSocket message with error status code
-                            error_response = DebuggerResponse(
-                                requestId=request.requestId,
-                                statusCode=500,
-                                response="",
-                                errorMessage=str(e),
-                            )
-                            await self.send_message(dataclasses.asdict(error_response))
+                            # Only send error response for DebuggerRequest messages
+                            if "requestId" in message:
+                                error_response = DebuggerResponse(
+                                    requestId=message["requestId"],
+                                    statusCode=500,
+                                    response="",
+                                    errorMessage=str(e),
+                                )
+                                await self.send_message(dataclasses.asdict(error_response))
                             continue
 
                 except asyncio.TimeoutError:

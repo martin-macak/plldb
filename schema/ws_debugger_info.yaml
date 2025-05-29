@@ -1,0 +1,40 @@
+openapi: 3.0.0
+info:
+  title: PLLDB Debugger WebSocket API
+  version: 1.0.0
+  description: API for PLLDB Lambda Debugger WebSocket communication
+
+paths: {}
+
+components:
+  schemas:
+    DebuggerRequest:
+      type: object
+      required:
+        - sessionId
+        - connectionId
+        - logLevel
+        - message
+        - timestamp
+      properties:
+        sessionId:
+          type: string
+          description: The session ID
+        connectionId:
+          type: string
+          description: The connection ID
+        logLevel:
+          type: string
+          description: The log level
+          enum:
+            - DEBUG
+            - INFO
+            - WARNING
+            - ERROR
+            - CRITICAL
+        message:
+          type: string
+          description: The message
+        timestamp:
+          type: string
+          description: The timestamp in ISO 8601 format
