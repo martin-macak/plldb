@@ -83,11 +83,12 @@ def test_attach_command_requires_stack_name(runner):
     assert "Missing option '--stack-name'" in result.output
 
 
+@patch("plldb.cli.Debugger")
 @patch("plldb.cli.StackDiscovery")
 @patch("plldb.cli.RestApiClient")
 @patch("plldb.cli.WebSocketClient")
 @patch("plldb.cli.asyncio.run")
-def test_attach_command_success(mock_asyncio_run, mock_ws_client_class, mock_rest_client_class, mock_discovery_class, runner, mock_aws_session, monkeypatch):
+def test_attach_command_success(mock_asyncio_run, mock_ws_client_class, mock_rest_client_class, mock_discovery_class, mock_debugger_class, runner, mock_aws_session, monkeypatch):
     """Test successful attach command execution."""
 
     # Mock boto3 Session
@@ -113,6 +114,10 @@ def test_attach_command_success(mock_asyncio_run, mock_ws_client_class, mock_res
     mock_ws_client = Mock()
     mock_ws_client_class.return_value = mock_ws_client
 
+    # Mock Debugger
+    mock_debugger = Mock()
+    mock_debugger_class.return_value = mock_debugger
+
     # Run command
     result = runner.invoke(cli, ["attach", "--stack-name", "test-stack"], catch_exceptions=False)
 
@@ -125,6 +130,7 @@ def test_attach_command_success(mock_asyncio_run, mock_ws_client_class, mock_res
     mock_discovery.get_api_endpoints.assert_called_once_with("plldb")
     mock_rest_client.create_session.assert_called_once_with("https://test.execute-api.us-east-1.amazonaws.com/prod", "test-stack")
     mock_ws_client_class.assert_called_once_with("wss://test.execute-api.us-east-1.amazonaws.com/prod", "test-session-id")
+    mock_debugger_class.assert_called_once_with(session=mock_aws_session, stack_name="test-stack")
     mock_asyncio_run.assert_called_once()
 
 

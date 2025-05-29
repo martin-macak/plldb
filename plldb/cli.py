@@ -76,7 +76,7 @@ def attach(ctx, stack_name: str):
         ws_client = WebSocketClient(endpoints["websocket_url"], session_id)
 
         # Run the async event loop
-        debugger = Debugger(stack_name=stack_name)
+        debugger = Debugger(session=session, stack_name=stack_name)
         asyncio.run(ws_client.run_loop(debugger.handle_message))
 
     except ValueError as e:
