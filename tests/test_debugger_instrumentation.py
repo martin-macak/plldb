@@ -31,7 +31,7 @@ def mock_aws_services():
         # Return different configs for each function
         mock_lambda_client.get_function_configuration.side_effect = [
             {"Environment": {"Variables": {}}, "Layers": [], "Role": "arn:aws:iam::123456789012:role/test-function-1-role"},
-            {"Environment": {"Variables": {}}, "Layers": [], "Role": "arn:aws:iam::123456789012:role/test-function-2-role"}
+            {"Environment": {"Variables": {}}, "Layers": [], "Role": "arn:aws:iam::123456789012:role/test-function-2-role"},
         ]
         # Mock list_layer_versions for get_latest_layer_version
         mock_lambda_client.list_layer_versions.return_value = {
@@ -130,15 +130,15 @@ class TestInstrumentLambdaFunctions:
             assert kwargs["Environment"]["Variables"]["DEBUGGER_CONNECTION_ID"] == "connection-456"
             assert kwargs["Environment"]["Variables"]["AWS_LAMBDA_EXEC_WRAPPER"] == "/opt/bin/bootstrap"
             assert "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:3" in kwargs["Layers"]
-        
+
         # Verify IAM policy was added - should be called twice (for two functions)
         assert mock_aws_services["iam_client"].put_role_policy.call_count == 2
-        
+
         # Check the IAM policy calls
         iam_calls = mock_aws_services["iam_client"].put_role_policy.call_args_list
         for i, call in enumerate(iam_calls):
             args, kwargs = call
-            expected_role = f"test-function-{i+1}-role"
+            expected_role = f"test-function-{i + 1}-role"
             assert kwargs["RoleName"] == expected_role
             assert kwargs["PolicyName"] == "PLLDBAssumeRolePolicy"
             policy_doc = json.loads(kwargs["PolicyDocument"])
@@ -190,12 +190,12 @@ class TestUninstrumentLambdaFunctions:
             {
                 "Environment": {"Variables": {"DEBUGGER_SESSION_ID": "session-123", "DEBUGGER_CONNECTION_ID": "connection-456", "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap", "OTHER_VAR": "value"}},
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:2"}, {"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}],
-                "Role": "arn:aws:iam::123456789012:role/test-function-1-role"
+                "Role": "arn:aws:iam::123456789012:role/test-function-1-role",
             },
             {
                 "Environment": {"Variables": {"DEBUGGER_SESSION_ID": "session-123", "DEBUGGER_CONNECTION_ID": "connection-456", "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bin/bootstrap", "OTHER_VAR": "value"}},
                 "Layers": [{"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:PLLDBDebuggerRuntime:2"}, {"Arn": "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"}],
-                "Role": "arn:aws:iam::123456789012:role/test-function-2-role"
+                "Role": "arn:aws:iam::123456789012:role/test-function-2-role",
             },
         ]
 
@@ -217,15 +217,15 @@ class TestUninstrumentLambdaFunctions:
             # Should remove only the debug layer
             assert len(kwargs["Layers"]) == 1
             assert kwargs["Layers"][0] == "arn:aws:lambda:us-east-1:123456789012:layer:OtherLayer:1"
-            
+
         # Verify IAM policy was removed - should be called twice (for two functions)
         assert mock_aws_services["iam_client"].delete_role_policy.call_count == 2
-        
+
         # Check the IAM policy deletion calls
         iam_calls = mock_aws_services["iam_client"].delete_role_policy.call_args_list
         for i, call in enumerate(iam_calls):
             args, kwargs = call
-            expected_role = f"test-function-{i+1}-role"
+            expected_role = f"test-function-{i + 1}-role"
             assert kwargs["RoleName"] == expected_role
             assert kwargs["PolicyName"] == "PLLDBAssumeRolePolicy"
 
