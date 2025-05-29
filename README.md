@@ -7,6 +7,15 @@ This project provides a command-line tool that install an infrastructure that al
 The tool installs a helper stack that provides WebSocket API that allows this tool to connect to the interface and receive and send messages.
 The tool then attaches to existing CloudFormation stack and uses the helper stack to modify the lambda functions. Lambda functions are attached with custom layer that uses AWS_LAMBDA_EXEC_WRAPPER to modify the script that executes the lambda runtime. Custom runtime is used that hooks to AWS Lambda runtime API and intercepts the invocation requests. Instead of passing it to the original code, lambda sends a WebSocket message to debugger session. This is received by the local tool which then finds appropriate code locally and executes it. This allows the local debugger to debug the code. The response is then sent back to the WebSocket API which updates the response in correlation table. This is then picked by the lambda runtime and returned back to the AWS Lambda.
 
+This project tracks all major changes in [requirements](./docs/requirements/). Check them to understand how the tool works and how it evolves.
+
+This project is also entirely managed by agentic coding. It uses Claude to implement all the requirements with minimal human intervention.
+KEEP IT AI FIRST!!!
+
+## Issues
+
+Use GitHub issues to report any issues or feature requests.
+
 ## Architecture
 
 ### Stack
