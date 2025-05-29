@@ -87,6 +87,7 @@ Resources:
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSLambda_FullAccess
       Policies:
         - PolicyName: PLLDBServicePolicy
           PolicyDocument:
@@ -114,13 +115,6 @@ Resources:
                   - 'cloudformation:ListStackResources'
                   - 'cloudformation:DescribeStackResources'
                   - 'cloudformation:DescribeStacks'
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - 'lambda:GetFunction'
-                  - 'lambda:GetFunctionConfiguration'
-                  - 'lambda:UpdateFunctionConfiguration'
-                  - 'lambda:ListLayers'
                 Resource: '*'
 
   PLLDBDebuggerRole:
