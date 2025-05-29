@@ -146,3 +146,28 @@ class TestCloudFormationTemplate:
 
         for resource in existing_resources:
             assert resource in resources, f"Expected resource {resource} not found in template"
+
+    def test_service_role_has_websocket_permissions(self):
+        """Verify that PLLDBServiceRole has permissions to manage WebSocket connections."""
+        template_path = Path(__file__).parent.parent / "plldb" / "cloudformation" / "template.yaml"
+
+        with open(template_path, "r") as f:
+            template = yaml.load(f, Loader=CloudFormationYAMLLoader)
+
+        resources = template["Resources"]
+        service_role = resources["PLLDBServiceRole"]
+
+        # Find the execute-api policy statement
+        policies = service_role["Properties"]["Policies"]
+        api_stmt = None
+        for stmt in policies[0]["PolicyDocument"]["Statement"]:
+            if "execute-api:" in str(stmt.get("Action", [])):
+                api_stmt = stmt
+                break
+
+        assert api_stmt is not None, "PLLDBServiceRole should have execute-api permissions"
+        assert "execute-api:ManageConnections" in api_stmt["Action"]
+        
+        # Check that it references the WebSocket API
+        resources_in_policy = api_stmt["Resource"]
+        assert any("PLLDBWebSocketAPI" in str(r) for r in resources_in_policy)
