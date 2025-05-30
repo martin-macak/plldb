@@ -2,6 +2,31 @@
 
 This project provides a command-line tool that install an infrastructure that allows debugging lambda functions that run on AWS Python runtime locally.
 
+## How to use it?
+
+Run `make init` and `make`.
+This will build the project.
+
+You can use `plldb` command to attach to CloudFormation stacks.
+Stacks must contains `AWS::Serverless::Function` resources.
+
+To attach to the stack, run `plldb attach --stack-name <stack-name>`.
+
+Then you need to attach a python debugger to the local tool.
+In Pycharm this is done by `Attach to Process` action.
+
+In VSCode this is done by `Python Debugger: Remote Attach` launch configuration. Debugpy server must be enabled by adding `--debugpy` argument to the `plldb attach` command. For example:
+
+```bash
+plldb attach --stack-name <stack-name> --debugpy
+```
+
+You will be given an instruction to create a launch configuration in VSCode.
+
+Then set the breakpoints in the code and start debugging.
+
+You can then wait or invoke lambda functions in AWS and the debugger will break on the breakpoints.
+
 ## How does it work?
 
 The tool installs a helper stack that provides WebSocket API that allows this tool to connect to the interface and receive and send messages.
