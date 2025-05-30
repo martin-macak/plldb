@@ -1,10 +1,13 @@
 from collections.abc import Callable
+import logging
 import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator
 import uuid
+
+logger = logging.getLogger(__name__)
 
 
 class Executor:
@@ -33,6 +36,7 @@ class Executor:
         """
         self.working_dir = working_dir or Path(os.getcwd())
         self.cfn_template_path = cfn_template_path or Path(self.working_dir) / "template.yaml"
+        logger.debug(f"Executor initialized with working_dir={self.working_dir} and cfn_template_path={self.cfn_template_path}")
 
     def invoke_lambda_function(
         self,
@@ -54,6 +58,7 @@ class Executor:
         Raises:
             RuntimeError: If the Lambda function cannot be found or invoked.
         """
+        logger.debug(f"Invoking lambda function {lambda_function_logical_id} with event {event}")
 
         if lambda_context is None:
             # create new type tha mimics the lambda context
@@ -71,8 +76,12 @@ class Executor:
             )()
 
         with self.with_site_packages():
+            logger.debug(f"Prepared local site-packages")
             with self.with_lambda_handler(lambda_function_logical_id) as handler:
+                logger.debug(f"Found lambda handler callable")
                 with self.with_environment(environment):
+                    logger.debug("Prepared environment")
+                    logger.debug(f"Invoking lambda handler {handler}")
                     return handler(event, lambda_context)
 
     @contextmanager
@@ -170,9 +179,15 @@ class Executor:
             LambdaFunctionNotAServerlessFunctionError: If the resource is not an AWS::Serverless::Function
             ValueError: If the handler format is invalid
         """
-        cfn_template = self.load_cfn_template()
+        try:
+            cfn_template = self.load_cfn_template()
+        except Exception as e:
+            logger.error(f"Error loading cfn template: {e}")
+            raise e
+        logger.debug(f"Loaded cfn template {cfn_template}")
 
         if lambda_function_logical_id not in cfn_template["Resources"]:
+            logger.error(f"Lambda function '{lambda_function_logical_id}' not found in template")
             raise LambdaFunctionNotFoundError(f"Lambda function '{lambda_function_logical_id}' not found in template")
 
         lambda_function = cfn_template["Resources"][lambda_function_logical_id]
@@ -180,11 +195,13 @@ class Executor:
             code_uri = lambda_function["Properties"].get("CodeUri", ".")
             handler = lambda_function["Properties"]["Handler"]
         else:
+            logger.error(f"Resource '{lambda_function_logical_id}' is not an AWS::Serverless::Function")
             raise LambdaFunctionNotAServerlessFunctionError(f"Resource '{lambda_function_logical_id}' is not an AWS::Serverless::Function")
 
         # Parse handler string (format: module.function)
         handler_parts = handler.split(".")
         if len(handler_parts) < 2:
+            logger.error(f"Invalid handler format: {handler}. Expected 'module.function'")
             raise ValueError(f"Invalid handler format: {handler}. Expected 'module.function'")
 
         module_path = ".".join(handler_parts[:-1])
@@ -195,6 +212,7 @@ class Executor:
 
         # Save original sys.path
         original_sys_path = sys.path.copy()
+        logger.debug(f"Original sys.path: {original_sys_path}")
 
         try:
             # Add code path to sys.path so we can import the module
@@ -204,15 +222,19 @@ class Executor:
             # Import the module
             import importlib
 
+            logger.debug(f"Importing module {module_path}")
             module = importlib.import_module(module_path)
 
+            logger.debug(f"Module {module_path} imported, extracting handler function {handler_name}")
             # Get the handler function
             handler_func = getattr(module, handler_name)
+            logger.debug(f"Handler function {handler_name} in module {module_path} found")
 
             yield handler_func
 
         finally:
             # Restore original sys.path
+            logger.debug(f"Restoring original sys.path")
             sys.path[:] = original_sys_path
 
             # Remove the imported module from sys.modules to ensure clean state
@@ -220,6 +242,7 @@ class Executor:
                 del sys.modules[module_path]
 
     def load_cfn_template(self):
+        logger.debug(f"Loading cfn template from {self.cfn_template_path}")
         from plldb.util.cfn import load_yaml
 
         with open(self.cfn_template_path, "r") as file:

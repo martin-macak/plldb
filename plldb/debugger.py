@@ -1,8 +1,11 @@
 import json
+import logging
 from typing import Dict, Union
 import boto3
 from plldb.protocol import DebuggerRequest, DebuggerResponse, DebuggerInfo
 from plldb.executor import Executor
+
+logger = logging.getLogger(__name__)
 
 
 class Debugger:
@@ -25,6 +28,8 @@ class Debugger:
         for resource type AWS::Lambda::Function.
         """
         # Create CloudFormation client
+        logger.debug(f"Inspecting stack {self.stack_name}")
+
         cfn_client = self.session.client("cloudformation")
 
         # Get all stack resources using list_stack_resources which supports pagination
@@ -39,23 +44,26 @@ class Debugger:
                     logical_id = resource.get("LogicalResourceId")
                     if physical_id and logical_id:
                         self._lambda_functions_lookup[physical_id] = logical_id
+                        logger.debug(f"Found lambda function {logical_id} with physical id {physical_id}")
+        logger.debug("Stack inspection complete")
 
     def handle_message(self, message: Dict) -> Union[DebuggerResponse, None]:
         # Check if this is a DebuggerInfo message
         if "logLevel" in message and "timestamp" in message:
             info = DebuggerInfo(**message)
-            # Print the log message to console
-            print(f"[{info.timestamp}] [{info.logLevel}] {info.message}")
+            logger.debug(f"Received remote debugger message: {info.message}")
             return None
 
         # Otherwise, it's a DebuggerRequest
         request = DebuggerRequest(**message)
-        print(f"Received request: {request}")
+        logger.info(f"DEBUG requestId={request.requestId} for lambdaFunctionName={request.lambdaFunctionName}")
+        logger.debug(f"Request: {request}")
 
         # The lambdaFunctionName is the physical resource ID
         lambda_function_physical_id = request.lambdaFunctionName
         lambda_function_logical_id = self._lambda_functions_lookup.get(lambda_function_physical_id)
         if not lambda_function_logical_id:
+            logger.error(f"Resource {lambda_function_logical_id} not found in current stack")
             raise InvalidMessageError(f"Lambda function {lambda_function_physical_id} not found in the stack")
 
         try:

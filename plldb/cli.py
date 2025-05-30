@@ -11,15 +11,18 @@ from plldb.simulator import start_simulator
 from plldb.stack_discovery import StackDiscovery
 from plldb.websocket_client import WebSocketClient
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
-logger = logging.getLogger(__name__)
-
 
 @click.group()
 @click.version_option(prog_name="plldb")
+@click.option("--debug", is_flag=True, default=False, help="Enable debug logging")
 @click.pass_context
-def cli(ctx):
+def cli(ctx, debug: bool):
     """PLLDB - AWS Command Line Tool"""
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    if debug:
+        logging.getLogger("plldb").setLevel(logging.DEBUG)
+        logger = logging.getLogger(__name__)
+        logger.debug("Debug mode enabled")
 
     session = boto3.Session()
     ctx.ensure_object(dict)
