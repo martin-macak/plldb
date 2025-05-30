@@ -54,12 +54,45 @@ def destroy(ctx):
 
 @cli.command()
 @click.option("--stack-name", required=True, help="Name of the CloudFormation stack to attach to")
+@click.option("--debugpy", is_flag=True, default=False, help="Enable debugpy server")
+@click.option("--debugpy-port", default=5678, type=int, help="Port for the debugpy server (default: 5678)")
+@click.option("--debugpy-host", default="127.0.0.1", help="Host for the debugpy server (default: 127.0.0.1)")
 @click.pass_context
-def attach(ctx, stack_name: str):
+def attach(ctx, stack_name: str, debugpy: bool, debugpy_port: int, debugpy_host: str):
     """Attach debugger to a CloudFormation stack"""
     session = ctx.obj["session"]
 
     try:
+        # Start debugpy server if enabled
+        if debugpy:
+            import debugpy as debugpy_module
+
+            debugpy_module.listen((debugpy_host, debugpy_port))
+            click.echo(f"Debugpy server is enabled and it runs on {debugpy_host}:{debugpy_port}.")
+            click.echo("To attach to the debugpy server from the visual studio code, you can use the following launch configuration:")
+            click.echo("")
+            click.echo("{")
+            click.echo('    "name": "Python Debugger: Remote Attach",')
+            click.echo('    "type": "debugpy",')
+            click.echo('    "request": "attach",')
+            click.echo(f'    "connect": {{ "host": "{debugpy_host}", "port": {debugpy_port} }}')
+            click.echo("}")
+            click.echo("")
+            click.echo("If you don't have your debug configurations yet, create `.vscode/launch.json` file with the following content:")
+            click.echo("")
+            click.echo("{")
+            click.echo('    "configurations": [')
+            click.echo('        "name": "Python Debugger: Remote Attach",')
+            click.echo('        "type": "debugpy",')
+            click.echo('        "request": "attach",')
+            click.echo(f'        "connect": {{ "host": "{debugpy_host}", "port": {debugpy_port} }}')
+            click.echo("    ]")
+            click.echo("}")
+            click.echo("")
+            click.echo("Waiting for debugger to attach...")
+            debugpy_module.wait_for_client()
+            click.echo("Debugger attached!")
+
         # Discover stack endpoints
         discovery = StackDiscovery(session)
         endpoints = discovery.get_api_endpoints("plldb")
