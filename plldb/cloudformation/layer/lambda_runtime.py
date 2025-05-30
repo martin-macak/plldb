@@ -136,7 +136,7 @@ def poll_for_response(session: boto3.Session, request_id: str, timeout: int = 30
     return None, "Timeout waiting for debugger response"
 
 
-def send_websocket_notification(session: boto3.Session, connection_id: str, message: Dict[str, Any]) -> None:
+def send_debugger_request(session: boto3.Session, connection_id: str, message: Dict[str, Any]) -> None:
     """Send notification to WebSocket connection."""
     # Get WebSocket API endpoint from environment
     websocket_endpoint = os.environ.get("DEBUGGER_WEBSOCKET_API_ENDPOINT")
@@ -233,7 +233,7 @@ def main():
                         "event": json.dumps(event),
                         "environmentVariables": dict(os.environ),
                     }
-                    send_websocket_notification(debugger_session, connection_id, websocket_message)
+                    send_debugger_request(debugger_session, connection_id, websocket_message)
 
                     # Poll for response
                     response, error = poll_for_response(debugger_session, request_id)

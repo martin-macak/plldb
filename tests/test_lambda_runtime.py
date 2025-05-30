@@ -282,7 +282,7 @@ class TestPollingAndWebSocket:
         assert error == "Timeout waiting for debugger response"
 
     @patch("boto3.Session.client")
-    def test_send_websocket_notification_success(self, mock_client, monkeypatch):
+    def test_send_debugger_request_success(self, mock_client, monkeypatch):
         """Test successful WebSocket notification."""
         monkeypatch.setenv(
             "DEBUGGER_WEBSOCKET_API_ENDPOINT",
@@ -299,13 +299,13 @@ class TestPollingAndWebSocket:
 
         # Test notification
         message = {"action": "test", "data": "value"}
-        lambda_runtime.send_websocket_notification(mock_session, "test-connection-id", message)
+        lambda_runtime.send_debugger_request(mock_session, "test-connection-id", message)
 
         # Verify API call
         mock_api_client.post_to_connection.assert_called_once_with(ConnectionId="test-connection-id", Data=json.dumps(message).encode())
 
     @patch("boto3.Session.client")
-    def test_send_websocket_notification_error(self, mock_client, monkeypatch):
+    def test_send_debugger_request_error(self, mock_client, monkeypatch):
         """Test WebSocket notification error handling (should not raise)."""
         monkeypatch.setenv(
             "DEBUGGER_WEBSOCKET_API_ENDPOINT",
@@ -322,7 +322,7 @@ class TestPollingAndWebSocket:
         mock_session.client = mock_client
 
         # Test notification - should not raise
-        lambda_runtime.send_websocket_notification(mock_session, "test-connection-id", {"test": "data"})
+        lambda_runtime.send_debugger_request(mock_session, "test-connection-id", {"test": "data"})
 
         # Verify API was called despite error
         assert mock_api_client.post_to_connection.called
@@ -410,10 +410,10 @@ class TestMainLoop:
     @patch("plldb.cloudformation.layer.lambda_runtime.get_next_invocation")
     @patch("plldb.cloudformation.layer.lambda_runtime.assume_debugger_role")
     @patch("plldb.cloudformation.layer.lambda_runtime.create_debugger_request")
-    @patch("plldb.cloudformation.layer.lambda_runtime.send_websocket_notification")
+    @patch("plldb.cloudformation.layer.lambda_runtime.send_debugger_request")
     @patch("plldb.cloudformation.layer.lambda_runtime.poll_for_response")
     @patch("plldb.cloudformation.layer.lambda_runtime.send_response")
-    def test_main_debug_mode_success(self, mock_send_response, mock_poll, mock_ws_notify, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
+    def test_main_debug_mode_success(self, mock_send_response, mock_poll, mock_send_debugger_request, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
         """Test main in debug mode with successful response."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
         monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
@@ -441,17 +441,17 @@ class TestMainLoop:
             {"test": "event"},
             {"aws_request_id": "request-1", "function_name": "test-function", "function_version": "", "invoked_function_arn": "", "memory_limit_in_mb": ""},
         )
-        mock_ws_notify.assert_called_once()
+        mock_send_debugger_request.assert_called_once()
         mock_poll.assert_called_once_with(mock_session, "request-1")
         mock_send_response.assert_called_once_with("127.0.0.1:9001", "request-1", {"result": "success"})
 
     @patch("plldb.cloudformation.layer.lambda_runtime.get_next_invocation")
     @patch("plldb.cloudformation.layer.lambda_runtime.assume_debugger_role")
     @patch("plldb.cloudformation.layer.lambda_runtime.create_debugger_request")
-    @patch("plldb.cloudformation.layer.lambda_runtime.send_websocket_notification")
+    @patch("plldb.cloudformation.layer.lambda_runtime.send_debugger_request")
     @patch("plldb.cloudformation.layer.lambda_runtime.poll_for_response")
     @patch("plldb.cloudformation.layer.lambda_runtime.send_error")
-    def test_main_debug_mode_with_error(self, mock_send_error, mock_poll, mock_ws_notify, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
+    def test_main_debug_mode_with_error(self, mock_send_error, mock_poll, mock_send_debugger_request, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
         """Test main in debug mode when debugger returns error."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
         monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
@@ -541,10 +541,10 @@ class TestMainLoop:
     @patch("plldb.cloudformation.layer.lambda_runtime.get_next_invocation")
     @patch("plldb.cloudformation.layer.lambda_runtime.assume_debugger_role")
     @patch("plldb.cloudformation.layer.lambda_runtime.create_debugger_request")
-    @patch("plldb.cloudformation.layer.lambda_runtime.send_websocket_notification")
+    @patch("plldb.cloudformation.layer.lambda_runtime.send_debugger_request")
     @patch("plldb.cloudformation.layer.lambda_runtime.poll_for_response")
     @patch("plldb.cloudformation.layer.lambda_runtime.send_response")
-    def test_main_debug_mode_websocket_error_ignored(self, mock_send_response, mock_poll, mock_ws_notify, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
+    def test_main_debug_mode_websocket_error_ignored(self, mock_send_response, mock_poll, mock_send_debugger_request, mock_create_request, mock_assume_role, mock_get_next, monkeypatch):
         """Test that WebSocket errors are handled gracefully."""
         monkeypatch.setenv("AWS_LAMBDA_RUNTIME_API", "127.0.0.1:9001")
         monkeypatch.setenv("DEBUGGER_SESSION_ID", "test-session")
@@ -553,7 +553,7 @@ class TestMainLoop:
         # Setup mocks
         mock_session = Mock()
         mock_assume_role.return_value = mock_session
-        mock_ws_notify.side_effect = Exception("WebSocket error")
+        mock_send_debugger_request.side_effect = Exception("WebSocket error")
         mock_poll.return_value = ({"result": "success"}, None)
 
         # Mock send_error to capture the error call
