@@ -1,0 +1,21 @@
+repos:
+  - repo: local
+    hooks:
+      - id: format
+        name: Format code with ruff
+        entry: make format
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: pyright
+        name: Type check with pyright
+        entry: make pyright
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: test
+        name: Run tests
+        entry: make test
+        language: system
+        pass_filenames: false
+        always_run: true

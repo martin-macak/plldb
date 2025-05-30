@@ -69,6 +69,7 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.2.0",
     "types-boto3>=1.38.23",
     "types-pyyaml>=6.0.12.20250516",
 ]
