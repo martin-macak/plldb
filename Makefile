@@ -1,4 +1,4 @@
-.PHONY: init build test clean
+.PHONY: init build test clean publish
 
 all: init build
 
@@ -20,6 +20,10 @@ pyright:
 
 format:
 	uv run ruff format
+
+# Publish to PyPI
+publish: build
+	uv publish
 
 # Clean up build artifacts and cache files
 clean:
