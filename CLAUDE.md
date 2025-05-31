@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - When fixing github issues, always create new branch for it, called issue/gh-<issue-id>
 - Before committing, run `make format` to format codebase
 - Pre-commit hooks are configured to run `make format`, `make pyright`, and `make test` automatically
+- Always link fixed GH issue into PR
 
 ## Commands
 
