@@ -27,6 +27,17 @@ Then set the breakpoints in the code and start debugging.
 
 You can then wait or invoke lambda functions in AWS and the debugger will break on the breakpoints.
 
+## How to test it?
+
+There is small SAM stack in `tests/test_stack` that can be used to test the tool.
+
+- `cd tests/test_stack`
+- `sam build`
+- `sam deploy`
+- `plldb attach --stack-name plldb-test-stack`
+- attach the debugger to the local tool
+- go to the AWS Console and invoke the lambda function plldb-test-stack-...
+
 ## How does it work?
 
 The tool installs a helper stack that provides WebSocket API that allows this tool to connect to the interface and receive and send messages.
