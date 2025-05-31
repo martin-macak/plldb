@@ -110,6 +110,8 @@ Resources:
                 Resource:
                   - !GetAtt PLLDBSessions.Arn
                   - !Sub '${PLLDBSessions.Arn}/index/*'
+                  - !GetAtt PLLDBDebugger.Arn
+                  - !Sub '${PLLDBDebugger.Arn}/index/*'
               - Effect: Allow
                 Action:
                   - 'cloudformation:ListStackResources'
