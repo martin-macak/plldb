@@ -36,6 +36,9 @@ jobs:
     - name: Publish to PyPI
       run: |
         uv publish
+      env:
+        UV_PUBLISH_USERNAME: __token__
+        UV_PUBLISH_PASSWORD: ${{ secrets.UV_PUBLISH_PASSWORD }}
     
     - name: Generate release notes
       id: release_notes
