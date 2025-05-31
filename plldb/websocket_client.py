@@ -66,7 +66,9 @@ class WebSocketClient:
         if not self._websocket:
             raise RuntimeError("WebSocket not connected")
 
+        logger.debug(f"Sending WebSocket message: {message}")
         await self._websocket.send(json.dumps(message))
+        logger.debug(f"Sent WebSocket message: {message}")
 
     async def receive_message(self) -> Dict[str, Any]:
         """Receive a message from the WebSocket.
@@ -82,6 +84,7 @@ class WebSocketClient:
             raise RuntimeError("WebSocket not connected")
 
         raw_message = await self._websocket.recv()
+        logger.debug(f"Received WebSocket message: {raw_message}")
         return json.loads(raw_message)
 
     async def run_loop(
@@ -132,12 +135,14 @@ class WebSocketClient:
 
                         # Run handler in a separate thread
                         future = loop.run_in_executor(self._executor, message_handler, message)
+                        logger.debug(f"Received result from message handler")
 
                         try:
                             result = await future
 
                             if isinstance(result, DebuggerResponse):
                                 # Send WebSocket message with result
+                                logger.debug(f"Got DebuggerResponse from message handler {result}")
                                 await self.send_message(dataclasses.asdict(result))
                             # If result is None (from DebuggerInfo), don't send response
                         except InvalidMessageError as e:

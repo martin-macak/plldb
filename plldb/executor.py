@@ -44,7 +44,7 @@ class Executor:
         event: dict,
         lambda_context: Any | None = None,
         environment: dict | None = None,
-    ) -> None:
+    ) -> Any | None:
         """Invoke a Lambda function locally.
 
         Args:
